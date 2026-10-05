@@ -18,6 +18,10 @@ jobs:
       - name: Pin npm
         run: npm install --global npm@11.17.0
       - name: Backend, frontend, typecheck and packaging
+        env:
+          # Ordinary Linux runners cannot write the container-default /data path.
+          # Keep synthetic test assets in the disposable workspace instead.
+          XINGCHEN_STICKER_ROOT: ${{ github.workspace }}/build/ci-sticker-fixtures
         run: bash ./gradlew --no-daemon test frontendTest frontendTypecheck bootJar
       - name: Recovery tool tests (synthetic fixtures)
         run: python3 -m unittest discover -s tools -p 'test_*.py'
