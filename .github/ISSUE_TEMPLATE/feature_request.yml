@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a problem and a change to XingChen
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: Do not include secrets, private conversations, or personal account details.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: subsystem
+    attributes:
+      label: Affected subsystem
+      multiple: true
+      options:
+        - Social runtime
+        - Identity / relationships
+        - Memory
+        - Agent / tools
+        - Model provider
+        - OneBot / Gateway integration
+        - Admin Console
+        - Operations / security
+        - Documentation
+    validations:
+      required: true

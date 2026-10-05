@@ -22,6 +22,12 @@ The Core listens on `0.0.0.0:3200` inside its container so Docker networking can
 
 Requirements: Docker Engine/Desktop with Compose v2 and outbound access to the official Node/Eclipse Temurin images, Gradle distribution, Maven Central, and npm registry on the first build. The build stages use pinned Node 24.19.0 and Temurin JDK/JRE 21.0.12.1 tags; the Node image index is digest-pinned. Gradle Wrapper builds the frontend and bootJar inside the build stage. No host Java installation is required.
 
+The production Compose and Caddy examples take the public hostname from the
+`XINGCHEN_DOMAIN` environment variable. Set it in the deployment environment
+for both Compose interpolation and the Caddy process; never commit the real
+hostname to this repository. Validate the resulting configuration locally and
+do not publish rendered Compose output, which may contain deployment details.
+
 PowerShell from the repository root:
 
 ```powershell

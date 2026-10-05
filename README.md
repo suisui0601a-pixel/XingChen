@@ -1,36 +1,108 @@
-# XingChen Core
+# XingChen Core / 星辰
 
-XingChen 是独立开发的 Java AI 社交运行时与双语 Admin Console。核心提供 provider-neutral Agent/Tool 契约、DeepSeek HTTP/SSE 适配器、OneBot v11 HTTP/WS、可恢复会话、身份/关系/记忆、权限策略、usage 记录及受保护的运维后台。数据持久化使用 SQLite 和独立文件目录。
+面向 QQ 社交场景的 Java AI Agent Runtime。
 
-架构：QQ → 独立 OneBot Gateway → XingChen Core → Model Provider。SnowLuma、QQ、旧 qq-bridge 和 DSH 不打包进 Core 镜像。QQ 登录由独立 Gateway 的受支持管理界面完成；模型与 Gateway 凭据由用户在受保护后台录入。默认关闭真实外部连接，测试使用 fake fixtures。
+**A Java social AI runtime with identity, memory, tools, OneBot, and a protected admin console.**
 
-当前处于 `0.1.0-SNAPSHOT` 开发阶段，已完成隔离 Docker、持久化、恢复及后台测试；真实生产 QQ/Model E2E 不因基础设施上线而自动视为通过。Voice 转录/TTS 等未实现能力在界面中明确标记。没有规模、可用性或“绝对安全”保证。
+[![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Source available](https://img.shields.io/badge/license-source--available-informational)](LICENSE)
+[![CI](https://github.com/suisui0601a-pixel/XingChen/actions/workflows/ci.yml/badge.svg)](https://github.com/suisui0601a-pixel/XingChen/actions/workflows/ci.yml)
 
-## 许可与商业授权
+XingChen is a Java 21 application for building a social AI runtime around durable conversations, identity, relationships, memory, bounded agent tools, and model-provider adapters. It uses Spring Boot and SQLite and provides a protected bilingual administration console. QQ connectivity is provided by an independently deployed OneBot v11 gateway; that gateway is not part of this repository or container image.
 
-原始项目代码使用 [XingChen Community Source-Available License](LICENSE)：允许个人、学习和非商业使用及修改；商业部署、SaaS、转售、商业集成和基于本项目的收费支持需事先书面授权。这不是 OSI 开源许可。第三方代码保留各自许可，见 [第三方声明](THIRD_PARTY_NOTICES.md)。商业授权请通过正式仓库联系维护者；本许可文本不是法律意见。
+## Current status
 
-## 后台与部署入口
+| Area | Status |
+| --- | --- |
+| Core runtime, persistence, and protected Admin Console | Implemented; automated tests available |
+| Identity, relationships, and scoped memory | Implemented |
+| Agent tools and capability policy | Implemented |
+| DeepSeek provider and OneBot v11 integration | Implemented |
+| QQ production message/tool round-trip | Operator-confirmed after deployment on 2026-10-05; see [production record](docs/PHASE5_PRODUCTION_GO_LIVE.md) |
+| Voice features | In progress / not generally available |
+| General public release | In progress |
 
-后台覆盖会话/运行状态、身份/关系/记忆、人格/preset、社交设置、模型、贴纸、usage、权限、安全与运维。后台能力和限制以现有实现与页面提示为准。
+This status describes the current development line, not an availability or support guarantee. See the source-available terms in [LICENSE](LICENSE).
 
-首次管理员初始化见 [ADMIN_INITIALIZATION](docs/ADMIN_INITIALIZATION.md)，生产 HTTPS 与维护见 [DEPLOYMENT](docs/DEPLOYMENT.md)，备份/恢复见 [BACKUP_RESTORE](docs/BACKUP_RESTORE.md)。Gateway/模型由操作者独立配置；不要向维护者发送真实凭据。
+## Architecture
 
-## 本地构建
+```mermaid
+flowchart LR
+  QQ[QQ clients] --> Gateway[Independent OneBot v11 Gateway<br/>for example, SnowLuma]
+  Gateway --> Core[XingChen Core]
+  Core --> Identity[Identity & Relationships]
+  Core --> Memory[Scoped Memory]
+  Core --> Social[Social Runtime]
+  Core --> Tools[Agent Tools & Capability Policy]
+  Core --> Console[Protected Admin Console]
+  Core --> Provider[Model Provider Adapter]
+  Provider --> DeepSeek[DeepSeek API]
+```
 
-要求本机已安装并配置 JDK 21（`JAVA_HOME`/`PATH`）。`.toolchain` 只用于本机开发，不纳入 Git，不能作为克隆仓库的构建前提。仓库提交了 Gradle Wrapper 9.8.0 及发行包 SHA-256 校验；首次运行 `gradlew.bat` 需要访问 `services.gradle.org` 下载发行包，之后可从 Gradle 用户目录缓存使用。离线构建仅在 Wrapper 发行包和项目依赖均已缓存时可行；缺少缓存时 Wrapper 会明确失败，不要改用未校验发行包或修改固定版本。
+The Gateway is a separate operator-managed service. XingChen does not contain QQ clients, login credentials, QR-login automation, or SnowLuma binaries.
+
+Local development binds the Console to `127.0.0.1:3200`. In a container, the app
+listens on its container interface for service-to-service traffic; deployment
+examples publish only to host loopback by default and retain the explicit
+remote-bind guard.
+
+## Features
+
+### Social runtime
+
+- Private and group conversation handling through the OneBot v11 boundary.
+- Durable, serialized turn processing with replay/deduplication and restart-aware state.
+- Explicit wake and access policies rather than implicit unrestricted tool access.
+
+### Identity and memory
+
+- Stable platform identity and relationship/address-term management.
+- Scoped memory with provenance and visibility controls.
+- Prompt/persona configuration separated from transport and persistence contracts.
+
+### Agent and integrations
+
+- Provider-neutral model and tool contracts with provider-specific behavior kept in adapters.
+- QQ, memory, sticker, and slang tool families subject to catalog and capability policy.
+- DeepSeek tool-name transport mapping preserves XingChen's canonical internal names.
+
+### Administration
+
+- Protected bilingual Web Console for runtime, identity, prompts, models, OneBot, access, usage, and operations.
+- SecretStore-backed provider and gateway credentials.
+- Container deployment with non-root runtime, read-only root filesystem, and persistent data volume.
+
+## Quick start
+
+Requirements: JDK 21 and Docker Compose v2 for container deployment. The Gradle Wrapper downloads its pinned distribution on first use; frontend dependencies are installed by the build. For local development, see [Contributing](CONTRIBUTING.md).
 
 ```powershell
-./gradlew.bat clean test
+./gradlew.bat test
 ./gradlew.bat bootJar
 ```
 
-真实 API 测试独立使用 `./gradlew.bat liveTest`，仅在明确设置 `XINGCHEN_LIVE_TEST=1` 并提供 `XINGCHEN_DEEPSEEK_API_KEY` 后执行；普通测试不会读取密钥或访问网络。
+For the hardened container, persistence, administrator initialization, and a separately managed OneBot Gateway, follow [Deployment](docs/DEPLOYMENT.md). Do not put secrets in Compose, Git, issue reports, or shell history.
 
-探活：`GET /health`。
+`GET /health` is the basic liveness endpoint. Real provider tests are opt-in via
+`./gradlew.bat liveTest`; they require the explicit live-test flag and a dedicated
+test key. Normal tests use fixtures and do not call a provider.
 
-## Quick Docker Start
+## Documentation
 
-容器打包、首次部署、持久化目录及外部 OneBot Gateway 连接说明见 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)。XingChen Core 镜像不包含 SnowLuma。
+- [Architecture](docs/ARCHITECTURE.md) · [Agent Runtime](docs/AGENT_RUNTIME.md) · [Memory Model](docs/MEMORY_MODEL.md)
+- [Deployment](docs/DEPLOYMENT.md) · [Admin Initialization](docs/ADMIN_INITIALIZATION.md) · [Backup & Restore](docs/BACKUP_RESTORE.md)
+- [Model Provider](docs/MODEL_PROVIDER.md) · [OneBot Adapter](docs/ONEBOT_ADAPTER.md) · [SnowLuma Gateway Contract](docs/SNOWLUMA_GATEWAY_CONTRACT.md)
+- [Security](SECURITY.md) · [All documentation and historical reports](docs/README.md)
 
-架构与阶段边界见 `docs/ARCHITECTURE.md`、`docs/PHASE3_REPORT.md`。本地运行默认绑定 `127.0.0.1:3200`；容器部署的应用监听容器网卡，宿主默认仅发布到 loopback，并保留显式远程绑定授权与管理认证检查。
+## Screenshots
+
+No scrubbed, publishable console screenshots are included yet. We will add genuine screenshots only after reviewing them for credentials, private conversations, account identifiers, and infrastructure details. See [`docs/assets/screenshots/`](docs/assets/screenshots/).
+
+## Security
+
+Secrets do not belong in Git. The Console requires authentication, agent tools use capability allowlists, and the production container is configured non-root with a read-only root filesystem and no Docker socket. Keep the independently deployed Gateway isolated from public ingress. Provider diagnostics are sanitized; see [SECURITY.md](SECURITY.md) for the reporting process and deployment boundaries.
+
+## License
+
+XingChen is **source-available, not OSI open source**. Personal, learning, and non-commercial use are governed by [LICENSE](LICENSE); commercial use requires prior written authorization. Third-party components retain their own terms in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible XingChen issue
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never include API keys, tokens, cookies, passwords, private chat content, production database files, or unredacted logs.
+  - type: input
+    id: version
+    attributes:
+      label: XingChen version or commit
+      placeholder: Version or short commit hash
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+    validations:
+      required: true
+  - type: dropdown
+    id: execution
+    attributes:
+      label: Execution mode
+      options:
+        - Docker Compose
+        - Local development
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: java
+    attributes:
+      label: Java version
+      placeholder: JDK 21, if relevant
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Use synthetic data and redact identifiers.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and sanitized logs
+      description: Remove credentials, personal data, and private infrastructure details.
+    validations:
+      required: true
