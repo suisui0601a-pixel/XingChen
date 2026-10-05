@@ -20,7 +20,6 @@ documentation; dated phase and audit reports are retained as historical records.
 - [Model provider](MODEL_PROVIDER.md)
 - [DeepSeek tool-name mapping](DEEPSEEK_TOOL_NAME_MAPPING.md)
 - [OneBot v11 adapter](ONEBOT_ADAPTER.md)
-- [OneBot transport credentials](ONEBOT_TRANSPORT_CREDENTIALS.md)
 - [SnowLuma Gateway contract](SNOWLUMA_GATEWAY_CONTRACT.md)
 - [Stickers and slang](STICKERS_AND_SLANG.md)
 - [Data layout](DATA_LAYOUT.md)
@@ -31,7 +30,6 @@ documentation; dated phase and audit reports are retained as historical records.
 - [Admin initialization](ADMIN_INITIALIZATION.md)
 - [Backup and restore](BACKUP_RESTORE.md)
 - [Deployment target](DEPLOYMENT_TARGET.md)
-- [SnowLuma deployment notes](SNOWLUMA_PRODUCTION_DEPLOYMENT.md)
 
 ## Security
 
@@ -45,7 +43,6 @@ documentation; dated phase and audit reports are retained as historical records.
 - [Phase 4A](PHASE4A_REPORT.md) · [Phase 4B](PHASE4B_REPORT.md)
 - [Phase 4C final audit](PHASE4C_FINAL_AUDIT.md)
 - [Phase 5 production record](PHASE5_PRODUCTION_GO_LIVE.md)
-- [Phase 5 native Gateway status](PHASE5_NATIVE_GATEWAY_DEPLOYMENT_STATUS.md)
 
 ## Audits and evidence
 
