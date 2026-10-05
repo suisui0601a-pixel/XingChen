@@ -33,3 +33,13 @@ Do not restore retired artifacts or obtain a fake QR through XingChen Console.
 Final Phase 5 completion remains separate from this source publication: CI outcome,
 post-restart manual admin acceptance and any new Gateway installation authority
 must be reported honestly. No final PDF or next-phase work is started here.
+
+## Subsequent production update
+
+After the QR-login handoff described above, the operator later reported that a
+separate Gateway was available and that the deployed Core completed real QQ /
+DeepSeek tool round-trip acceptance. See the dated update in
+[PHASE5_PRODUCTION_GO_LIVE.md](PHASE5_PRODUCTION_GO_LIVE.md). This superseding
+operator report does not claim that this repository-sync run independently
+repeated the live test. Production domain, host address, and credentials remain
+omitted.

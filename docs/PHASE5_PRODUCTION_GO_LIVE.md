@@ -41,8 +41,8 @@ replace it with the assertion that an unchanged hash is a logged-in session.
 
 ## Public HTTPS / proxy
 
-- Domain `https://deepseek.晚安.online`, canonical IDNA
-  `https://deepseek.xn--49sp5w.online`.
+- Production domain and canonical IDNA hostname are intentionally omitted from
+  this public record.
 - DNS A verified against deployment target; no AAAA address found. DNS unchanged.
 - Existing Caddy was validated and **hot reloaded**, not restarted in this switch.
   Only the XingChen site changed; original Zetu site text remained untouched.
@@ -94,13 +94,37 @@ QQ / Model: **USER CONFIGURATION DEFERRED**, not real E2E PASS. XingChen does no
 fetch or refresh QQ login QR codes. QQ login requires independently deployed
 SnowLuma official WebUI/noVNC/QQ GUI; never synthesize a logged-in status.
 
-## Regression / remaining acceptance
+## Regression / acceptance at the earlier infrastructure checkpoint
 
 Application-code regression: backend 350/350, frontend 41/41, typecheck and bootJar
 PASS; full browser fixture suite 17 passed / 2 opt-in container tests skipped.
 Separate real-browser initialization and real Docker initialization/restart
 checks passed. Deployment/licensing docs do not change the tested application code.
 
-Current infrastructure: ACTIVE. Phase 5: NOT COMPLETE until publication audit,
-public repository/CI configuration and final acceptance close. No real QQ/model
-E2E claim, no final PDF, and no next-phase work.
+At that checkpoint, infrastructure was ACTIVE, Phase 5 remained NOT COMPLETE, and
+there was no real QQ/model E2E claim. The later operator-reported tool-mapping
+acceptance is recorded below; it does not by itself close the remaining Phase 5
+publication, backup, or final-audit gates. No final PDF or next-phase work is
+claimed here.
+
+## Subsequent tool-mapping deployment acceptance
+
+On 2026-10-05 the operator reported that application revision
+`264ebde26329d6a2cf48e8f4ac867daa71c58bd9` was deployed and the production
+DeepSeek model `deepseek-v4-flash` completed the following acceptance:
+
+- Provider-local reversible mapping: internal `qq.send`, `qq.readRecent`, and
+  `memory.search` serialize as `qq_send`, `qq_readRecent`, and `memory_search`.
+- Request tool definitions, non-stream response reverse mapping, historical
+  assistant `tool_calls`, fragmented streaming tool calls, and the second-turn
+  tool-history round trip were reported PASS.
+- Real QQ message/tool round-trip through QQ → SnowLuma → OneBot → XingChen Core
+  → DeepSeek → Core → QQ was reported PASS by the operator.
+
+This mapping changes only provider transport spelling. Core canonical tool
+contracts and permission checks are unchanged. OneBot, SnowLuma, Zetu, and Caddy
+were reported unchanged by this application fix. No account IDs, message text,
+prompt, request body, credentials, cookies, or production hostname are recorded.
+
+This is an operator-provided production acceptance update; this documentation
+sync did not independently send or inspect a live production conversation.

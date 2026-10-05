@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Added provider-local, reversible function/tool-name mapping for DeepSeek. Core
+  canonical dotted names and capability policy remain unchanged.
+- Added collision detection, rejection of unknown provider tool names, historical
+  tool-call mapping, stream-response decoding, and sanitized provider diagnostics.
+- The operator reported production QQ message/tool round-trip and second-turn
+  tool-history acceptance after deploying this fix on 2026-10-05. This repository
+  sync does not independently repeat live production conversations.
+
 ## 0.1.0-SNAPSHOT — development / production infrastructure candidate
 
 - Provider-neutral Java Agent/Tool contracts, OneBot transport and durable social
