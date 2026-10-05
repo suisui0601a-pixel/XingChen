@@ -1,0 +1,15 @@
+ALTER TABLE console_admin_credentials ADD COLUMN auth_generation INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE token_usage ADD COLUMN reasoning_available INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE console_pricing (provider TEXT NOT NULL, model TEXT NOT NULL, input REAL NOT NULL DEFAULT 0, cache_hit REAL NOT NULL DEFAULT 0, cache_miss REAL NOT NULL DEFAULT 0, output REAL NOT NULL DEFAULT 0, reasoning REAL NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'USD', revision INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL, PRIMARY KEY(provider,model));
+CREATE TABLE console_access_rules (id INTEGER PRIMARY KEY AUTOINCREMENT, scope TEXT NOT NULL CHECK(scope IN ('PRIVATE','GROUP')), platform TEXT NOT NULL, stable_id TEXT NOT NULL, effect TEXT NOT NULL CHECK(effect IN ('ALLOW','DENY')), updated_at TEXT NOT NULL, updated_by TEXT NOT NULL, UNIQUE(scope,platform,stable_id));
+CREATE TABLE console_access_meta (singleton INTEGER PRIMARY KEY CHECK(singleton=1), revision INTEGER NOT NULL);
+INSERT INTO console_access_meta(singleton,revision) VALUES(1,0);
+CREATE TABLE console_access_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, occurred_at TEXT NOT NULL, actor TEXT NOT NULL, scope TEXT NOT NULL, platform TEXT NOT NULL, stable_id TEXT NOT NULL, old_effect TEXT, new_effect TEXT NOT NULL, revision INTEGER NOT NULL);
+CREATE TABLE console_pricing_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, occurred_at TEXT NOT NULL, actor TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL, old_input REAL, new_input REAL NOT NULL, old_cache_hit REAL, new_cache_hit REAL NOT NULL, old_cache_miss REAL, new_cache_miss REAL NOT NULL, old_output REAL, new_output REAL NOT NULL, old_reasoning REAL, new_reasoning REAL NOT NULL, currency TEXT NOT NULL, revision INTEGER NOT NULL);
+CREATE TABLE console_pricing_meta (singleton INTEGER PRIMARY KEY CHECK(singleton=1), revision INTEGER NOT NULL);
+INSERT INTO console_pricing_meta(singleton,revision) VALUES(1,0);
+CREATE INDEX console_access_audit_time_idx ON console_access_audit(occurred_at DESC);
+CREATE INDEX console_pricing_audit_time_idx ON console_pricing_audit(occurred_at DESC);
+CREATE INDEX token_usage_time_idx ON token_usage(usage_time DESC);
+CREATE INDEX token_usage_model_time_idx ON token_usage(provider,model,usage_time DESC);
+CREATE INDEX console_access_lookup_idx ON console_access_rules(scope,platform,stable_id);

@@ -1,0 +1,10 @@
+{
+  "tests": 336,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "commit": "7ad879afedfef4204f4def246d8d18ce222e9a29",
+  "artifactBytes": 44682628,
+  "artifactSha256": "b53ac83f0efa7cdb6ba0c6ffe2692d727bfe816ba8f65f574ef074ed3fb61c0b",
+  "linuxGradlewMode": "0o775"
+}

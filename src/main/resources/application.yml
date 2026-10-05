@@ -1,0 +1,81 @@
+server:
+  forward-headers-strategy: none
+  address: ${XINGCHEN_CONSOLE_BIND:127.0.0.1}
+  port: ${XINGCHEN_CONSOLE_PORT:3200}
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: strict
+        secure: ${XINGCHEN_CONSOLE_COOKIE_SECURE:false}
+spring:
+  application:
+    name: xingchen-core
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  main:
+    banner-mode: off
+  datasource:
+    url: jdbc:sqlite:${XINGCHEN_DB_PATH:${xingchen.data-dir:./data}/db/xingchen.db}
+    driver-class-name: org.sqlite.JDBC
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+xingchen:
+  version: ${XINGCHEN_VERSION:0.1.0-SNAPSHOT}
+  data-dir: ${XINGCHEN_DATA_DIR:./data}
+  owner:
+    platform: QQ
+    platform-user-id: ${XINGCHEN_OWNER_ID:}
+  console:
+    initialize-enabled: ${XINGCHEN_CONSOLE_INITIALIZE_ENABLED:false}
+    use-persisted-admin: ${XINGCHEN_CONSOLE_USE_PERSISTED_ADMIN:false}
+    bind: ${XINGCHEN_CONSOLE_BIND:127.0.0.1}
+    port: ${XINGCHEN_CONSOLE_PORT:3200}
+    allow-remote: ${XINGCHEN_CONSOLE_ALLOW_REMOTE:false}
+    cookie-secure: ${XINGCHEN_CONSOLE_COOKIE_SECURE:false}
+    public-base-url: ${XINGCHEN_PUBLIC_BASE_URL:}
+    trusted-proxies: ${XINGCHEN_TRUSTED_PROXIES:}
+  onebot:
+    ws-url: ${ONEBOT_WS_URL:ws://127.0.0.1:3001}
+    http-url: ${ONEBOT_HTTP_URL:http://127.0.0.1:3000}
+    login-user-id: ${ONEBOT_LOGIN_USER_ID:}
+  model:
+    provider: ${MODEL_PROVIDER:deepseek-official}
+    model: ${MODEL_ID:}
+  dsh:
+    base-url: ${DSH_BASE_URL:http://127.0.0.1:3190}
+  memory:
+    database-path: ${XINGCHEN_DB_PATH:${xingchen.data-dir:./data}/db/xingchen.db}
+    wal: true
+    foreign-keys: true
+    default-search-limit: 20
+  sticker:
+    root: ${XINGCHEN_STICKER_ROOT:/data/assets/stickers}
+  secrets:
+    directory: ${XINGCHEN_SECRET_DIR:data/secrets}
+  context:
+    soft-limit-tokens: ${CONTEXT_SOFT_LIMIT:60000}
+    rollover-tokens: ${CONTEXT_ROLLOVER_LIMIT:80000}
+    hard-limit-tokens: ${CONTEXT_HARD_LIMIT:120000}
+    recent-message-limit: 40
+    memory-token-budget: 12000
+    summary-token-budget: 4000
+  security:
+    allow-all-when-empty: false
+    fail-closed: true
+  social:
+    enabled: false
+  integrations:
+    dsh-enabled: false
+    onebot-enabled: false
+    model-enabled: false

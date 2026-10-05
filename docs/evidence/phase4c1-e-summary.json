@@ -1,0 +1,313 @@
+{
+  "phase": "4C-1",
+  "partition": "E",
+  "status": "PASS",
+  "finalAudit": "PASS",
+  "date": "2026-10-04",
+  "runtimeSource": "fb8e70860ab457fa09e334ed69ba4f9a1f50b8f3",
+  "closureDifference": "Browser test selector corrected to exact existing Long-term memory heading; reports only. No product change after image validation.",
+  "environment": {
+    "os": "Ubuntu 22.04.5 LTS",
+    "arch": "amd64",
+    "docker": "29.7.2",
+    "compose": "v5.5.0",
+    "buildx": "v0.36.1",
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "java": "21.0.12.1",
+    "gradle": "9.8.0"
+  },
+  "image": {
+    "id": "sha256:5764a4606d3571a98f1f1fc8959628db4e5460bbbe17b1a9f0aa7e8b2a67cec6",
+    "repoDigests": [
+      "xingchen-c4c1-core@sha256:5764a4606d3571a98f1f1fc8959628db4e5460bbbe17b1a9f0aa7e8b2a67cec6"
+    ],
+    "user": "10001:10001",
+    "entrypoint": [
+      "java",
+      "-Djava.io.tmpdir=/tmp",
+      "-Duser.home=/tmp",
+      "-Dorg.sqlite.lib.path=/app/native",
+      "-jar",
+      "/app/xingchen.jar"
+    ],
+    "workingDir": "/app",
+    "labels": {
+      "org.opencontainers.image.revision": "fb8e70860ab457fa09e334ed69ba4f9a1f50b8f3",
+      "org.opencontainers.image.title": "XingChen Core",
+      "org.opencontainers.image.version": "0.1.0-SNAPSHOT"
+    },
+    "layers": [
+      "sha256:d81fb2a7c6ee3be05fdefaa7fd223be219c1ab172083ec1b994c3ecda33ac0a8",
+      "sha256:085e15efe013d39b097dc302f957be20dc69bc81212d06bfc835d0c07675a02f",
+      "sha256:04a097194e6c3cfe44e2607dd528a3b6f3d5aba0c2c3e5813a14bde87b36e48b",
+      "sha256:926f1e29b141668d794dba08ad3661eaec5046d06ed38da5f093d555a30de00c",
+      "sha256:3b84ab99a73e5ea3c508e329cfdafd2a93e24de9336b49ee427a5d8605d9472f",
+      "sha256:5112ec49d273202ff18e46e70d6c9a64226a4353df8e316c9ac319ae38fb600c",
+      "sha256:2fbf9387eaf459ff7441bde699cf0b28e0ae9bf61f9ac3ba8b2845d323ef6269",
+      "sha256:a8055f9a40fdf27787f560fd883150405cefc93ed106756b8e3339c593b8cc42",
+      "sha256:d84c3fbff213d72d6d15e090f35467e368658e6a17e270607326474e675743f3",
+      "sha256:401de84ae358de8adb656f9c31f2b5f55912b78cd98ce8ea8fd2d4182e80c43b"
+    ],
+    "size": 144357613
+  },
+  "artifact": {
+    "bytes": 44681397,
+    "sha256": "382e68796e846879337553857552f0907fc6f793a5dd25a16f2ea695d0b519ef"
+  },
+  "regression": {
+    "backend": {
+      "tests": 339,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "frontend": {
+      "tests": 38,
+      "failed": 0
+    },
+    "typecheck": "PASS",
+    "frontendBuild": "PASS",
+    "bootJar": "PASS"
+  },
+  "build": {
+    "start": {
+      "free": 18046287872,
+      "available": 3107225600
+    },
+    "minFree": 15816269824,
+    "minAvailable": 2030452736,
+    "warning": false,
+    "safetyStop": false,
+    "memoryStop": false,
+    "exit": 0,
+    "finish": {
+      "free": 15816269824,
+      "available": 3003408384
+    }
+  },
+  "linuxValidation": {
+    "start": {
+      "free": 15815585792,
+      "available": 2993373184
+    },
+    "minFree": 15774486528,
+    "minAvailable": 1821413376,
+    "warning": false,
+    "safetyStop": false,
+    "memoryStop": false,
+    "exit": 0,
+    "finish": {
+      "free": 15775010816,
+      "available": 3049836544
+    }
+  },
+  "runtimeChecks": [
+    {
+      "check": "actual image layers/config/assets/secret exclusions",
+      "result": "PASS"
+    },
+    {
+      "check": "fresh-volume ownership of all persistent ancestors",
+      "result": "PASS"
+    },
+    {
+      "check": "effective container security/loopback/health",
+      "result": "PASS"
+    },
+    {
+      "check": "fresh named volume/Flyway/database/no fallback",
+      "result": "PASS"
+    },
+    {
+      "check": "20 real-HTTP concurrent Prompt rounds/one winner one conflict/no 500",
+      "result": "PASS"
+    },
+    {
+      "check": "representative API state creation",
+      "result": "PASS"
+    },
+    {
+      "check": "Docker restart persistence/all categories/CLEAR",
+      "result": "PASS"
+    },
+    {
+      "check": "same-volume recreate/all categories/changed bootstrap/CLEAR",
+      "result": "PASS"
+    },
+    {
+      "check": "isolated fake Gateway HTTP/WS/no revived authorization",
+      "result": "PASS"
+    },
+    {
+      "check": "fake Gateway disconnect/no production fallback",
+      "result": "PASS"
+    },
+    {
+      "check": "SIGTERM/graceful exit/database journal integrity",
+      "result": "PASS"
+    },
+    {
+      "check": "healthy same volume after SIGTERM",
+      "result": "PASS"
+    },
+    {
+      "check": "persisted explicit-empty public URL wins over unchanged bootstrap",
+      "result": "PASS"
+    },
+    {
+      "check": "unwritable data fail-fast/no silent fallback",
+      "result": "PASS"
+    },
+    {
+      "check": "runtime ready for separate real-container Playwright smoke",
+      "result": "PASS"
+    }
+  ],
+  "security": {
+    "uid": 10001,
+    "gid": 10001,
+    "readOnly": true,
+    "tmpfs": {
+      "/tmp": "rw,noexec,nosuid,nodev,size=64m,mode=1777"
+    },
+    "tmpMount": "tmpfs /tmp tmpfs rw,nosuid,nodev,noexec,relatime,size=65536k,inode64 0 0",
+    "sqliteNativeImmutable": true,
+    "capDrop": [
+      "ALL"
+    ],
+    "securityOpt": [
+      "no-new-privileges:true"
+    ],
+    "privileged": false,
+    "portBindings": {
+      "3200/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "13200"
+        }
+      ]
+    },
+    "dataVolume": "xingchen-c4c1-data",
+    "networkInternal": true,
+    "healthy": true
+  },
+  "shutdown": {
+    "exitCode": 143,
+    "oomKilled": false,
+    "gracefulStarted": true,
+    "gracefulCompleted": true,
+    "acceptedSignalExit": true
+  },
+  "unwritableData": {
+    "exitCode": 1,
+    "oomKilled": false,
+    "failedFast": true,
+    "network": "none",
+    "tmpMode": "1777",
+    "fallback": false
+  },
+  "browser": {
+    "status": "PASS",
+    "cases": 2,
+    "initialRun": {
+      "page": "FAIL (incorrect selector)",
+      "apiSecurity": "PASS"
+    },
+    "selectiveCorrectedRun": {
+      "page": "PASS",
+      "cases": 1
+    },
+    "retries": 0,
+    "apiInitialLogSha256": "0e600e920d60d7c9186920abdc51bd7dcf3d11f2a1a2f0c37ae5ee5ce9e4a60c",
+    "pageRecheckLogSha256": "a36b5e38e5e1cd8f786d070533a17ab7dcdcc03492545048893d1958e15ff718",
+    "target": "http://127.0.0.1:13200",
+    "browser": "Existing Windows Chrome via strict SSH tunnel"
+  },
+  "resources": {
+    "policy": "RESOURCE-CONSTRAINED CONTROLLED ATTEMPT",
+    "entryRecommendation20GiB": "REVOKED",
+    "samplingSeconds": 5,
+    "warnFreeBytes": 15032385536,
+    "hardStopFreeBytes": 12884901888,
+    "startFreeBytes": 18913869824,
+    "lowestObservedFreeBytes": 15242158080,
+    "finalObservedFreeBytes": 18902851584,
+    "lowestAvailableMemoryBytes": 1821413376,
+    "warning": false,
+    "safetyStop": false,
+    "oom": false,
+    "kernelJournalReadable": true,
+    "kernelOomQuery": "-- No entries --",
+    "builderMemoryEvents": {
+      "oom": 0,
+      "oom_kill": 0
+    },
+    "swap": "NONE"
+  },
+  "cleanup": {
+    "baselineMatch": {
+      "zetu-phase4c-api-1": {
+        "id": "234445abcb59d598aa2c517a4cfed91ad0f5fbd56eace4aa0f001c79df3be10b",
+        "status": "running",
+        "health": "healthy",
+        "restartCount": 0
+      },
+      "zetu-phase4c-web-1": {
+        "id": "ae7a7ee425bcc0c3dd3eb21ac5b38e71e5acf1303656eef46337ea7ccfc04c58",
+        "status": "running",
+        "health": "healthy",
+        "restartCount": 0
+      },
+      "zetu-phase4c-caddy-1": {
+        "id": "97eacca2ab721799ed083cfd2b160aff6dfc9a9d26890851a814111e2be787af",
+        "status": "running",
+        "health": null,
+        "restartCount": 0
+      }
+    },
+    "removed": [
+      "xingchen-c4c1-core",
+      "xingchen-c4c1-data",
+      "xingchen-c4c1-net",
+      "xingchen-c4c1-console-net",
+      "xingchen-c4c1-core:validation",
+      "owned prior attempt image sha256:252d6cebd1620dc300ed0086ab952c75dcdeeca669a30b84dfeb6a067fff04a8",
+      "task-owned builder image sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea"
+    ],
+    "legacyQQAbsent": true,
+    "remainingStaging": {
+      "containers": [],
+      "volumes": [],
+      "networks": [],
+      "images": []
+    },
+    "swapon": "",
+    "listeners": "State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   \nLISTEN 0      4096   127.0.0.53%lo:53         0.0.0.0:*    users:((\"systemd-resolve\",pid=562,fd=14))\nLISTEN 0      4096       127.0.0.1:18080      0.0.0.0:*    users:((\"docker-proxy\",pid=762599,fd=8)) \nLISTEN 0      4096         0.0.0.0:80         0.0.0.0:*    users:((\"docker-proxy\",pid=2612665,fd=8))\nLISTEN 0      128          0.0.0.0:22         0.0.0.0:*    users:((\"sshd\",pid=1104427,fd=3))        \nLISTEN 0      4096         0.0.0.0:443        0.0.0.0:*    users:((\"docker-proxy\",pid=2612685,fd=8))\nLISTEN 0      4096         0.0.0.0:28473      0.0.0.0:*    users:((\"1panel-core\",pid=2972,fd=23))   \nLISTEN 0      4096            [::]:80            [::]:*    users:((\"docker-proxy\",pid=2612671,fd=8))\nLISTEN 0      128             [::]:22            [::]:*    users:((\"sshd\",pid=1104427,fd=4))        \nLISTEN 0      4096            [::]:443           [::]:*    users:((\"docker-proxy\",pid=2612691,fd=8))",
+    "dockerPs": "zetu-phase4c-api-1 Up 13 days (healthy) 3001/tcp\nzetu-phase4c-web-1 Up 13 days (healthy) 127.0.0.1:18080->80/tcp\nzetu-phase4c-caddy-1 Up 5 days 0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp, 0.0.0.0:443->443/udp, [::]:443->443/udp, 2019/tcp",
+    "dockerSystemDf": "TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE\nImages          10        3         1.973GB   1.451GB (73%)\nContainers      5         3         20.48kB   8.192kB (40%)\nLocal Volumes   4         4         277.6MB   0B (0%)\nBuild Cache     0         0         0B        0B",
+    "kernelOomCheck": {
+      "exit": 1,
+      "matchingLines": []
+    },
+    "stagingDirectoryAbsent": true,
+    "finishFree": 18902769664,
+    "finishAvailable": 3122098176
+  },
+  "localTunnel": {
+    "ownedPid": 4864,
+    "stopped": true,
+    "loopbackPort13200Released": true
+  },
+  "evidence": {
+    "archivePath": "C:/Users/win/Documents/Codex/2026-09-29/files-pasted-by-the-user-0/work/xingchen-c4c1-e-evidence.tgz",
+    "archiveSha256": "10836743151d6b71513bf88a07497d2a04d53a7fcb1aba918e752518712b2190",
+    "includesFailedAttempts": true
+  },
+  "scope": {
+    "productionTouched": false,
+    "zetuUnchanged": true,
+    "realGatewayOrModelUsed": false,
+    "phase4C2Started": false
+  }
+}

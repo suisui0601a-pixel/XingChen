@@ -1,0 +1,17 @@
+{
+    email {$ACME_EMAIL}
+    admin off
+}
+
+{$CONSOLE_DOMAIN} {
+    reverse_proxy xingchen-core:3200 {
+        # Do not propagate client-supplied forwarded identity/scheme headers.
+        header_up -Forwarded
+        header_up -X-Forwarded-For
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Host {$CONSOLE_DOMAIN}
+        header_up Host {$CONSOLE_DOMAIN}
+    }
+    # Core supplies nosniff, DENY and no-referrer. HSTS is production TLS only.
+    header Strict-Transport-Security "max-age=31536000"
+}

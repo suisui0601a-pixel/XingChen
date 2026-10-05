@@ -1,0 +1,15 @@
+server:
+  address: 0.0.0.0
+  shutdown: graceful
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+xingchen:
+  data-dir: ${XINGCHEN_DATA_DIR:/data}
+  console:
+    bind: ${XINGCHEN_CONSOLE_BIND:0.0.0.0}
+    allow-remote: ${XINGCHEN_CONSOLE_ALLOW_REMOTE:false}
+  secrets:
+    directory: ${XINGCHEN_SECRET_DIR:/data/config}
+  sticker:
+    root: ${XINGCHEN_STICKER_ROOT:/data/assets/stickers}

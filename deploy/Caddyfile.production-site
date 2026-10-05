@@ -1,0 +1,18 @@
+# Merge only this virtual host into the existing edge configuration.
+# Preserve existing global options, other sites and certificate storage.
+deepseek.xn--49sp5w.online {
+    @initialization path /initialize /initialize/* /api/auth/initialize /api/auth/initialize/*
+    handle @initialization {
+        respond 404
+    }
+    handle {
+        reverse_proxy xingchen-core:3200 {
+            header_up -Forwarded
+            header_up -X-Forwarded-For
+            header_up X-Forwarded-Proto https
+            header_up X-Forwarded-Host deepseek.xn--49sp5w.online
+            header_up Host deepseek.xn--49sp5w.online
+        }
+    }
+    header Strict-Transport-Security "max-age=31536000"
+}

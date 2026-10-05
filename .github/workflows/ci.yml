@@ -1,0 +1,29 @@
+name: Isolated verification
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+      - name: Pin npm
+        run: npm install --global npm@11.17.0
+      - name: Backend, frontend, typecheck and packaging
+        run: bash ./gradlew --no-daemon test frontendTest frontendTypecheck bootJar
+      - name: Recovery tool tests (synthetic fixtures)
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
+      - name: Install isolated test browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Browser fixture E2E
+        working-directory: frontend
+        run: npm run e2e -- --workers=1

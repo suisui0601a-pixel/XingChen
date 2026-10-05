@@ -1,0 +1,7 @@
+package online.wanan.xingchen.console;
+import jakarta.servlet.*;import jakarta.servlet.http.*;import org.springframework.security.core.Authentication;import org.springframework.security.core.context.SecurityContextHolder;import org.springframework.web.filter.OncePerRequestFilter;import java.io.IOException;
+/** Rejects registered application sessions once their credential generation changes. */
+public final class AuthGenerationFilter extends OncePerRequestFilter {
+ private final ConsoleSessionGenerationRegistry registry;public AuthGenerationFilter(ConsoleSessionGenerationRegistry registry){this.registry=registry;}
+ @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain)throws ServletException,IOException{Authentication auth=SecurityContextHolder.getContext().getAuthentication();HttpSession session=req.getSession(false);if(auth!=null&&auth.isAuthenticated()&&session!=null&&req.getRequestURI().startsWith("/api/")&&!req.getRequestURI().startsWith("/api/auth/login")&&!req.getRequestURI().startsWith("/api/auth/csrf")){try{registry.enforce(session);}catch(ConsoleSessionGenerationRegistry.SessionExpiredException ex){SecurityContextHolder.clearContext();res.setStatus(401);res.setContentType("application/json");res.getWriter().write("{\"code\":\"SESSION_REAUTHENTICATION_REQUIRED\",\"message\":\"请重新登录\"}");return;}}chain.doFilter(req,res);}
+}

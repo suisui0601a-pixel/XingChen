@@ -1,0 +1,590 @@
+{
+  "phase": "4C-3",
+  "status": "PASS",
+  "testedRevision": "6559c89e48fd229b11a9027226733c21fa848c0d",
+  "oldRevision": "b67cf7a59cf0792ebc02a1c2aae7c1207413d3e1",
+  "engine": "29.7.2",
+  "compose": "5.5.0",
+  "build": [
+    {
+      "name": "current",
+      "revision": "6559c89e48fd229b11a9027226733c21fa848c0d",
+      "tag": "xingchen-c4c3-current:6559c89e48fd229b11a9027226733c21fa848c0d",
+      "imageId": "sha256:b5dc5741a55e873f2e2eb6dda4caaf64900e512a65dc9b8115c34d0538144534",
+      "size": 144358944,
+      "seconds": 779.6023565726355,
+      "exit": 0
+    },
+    {
+      "name": "old",
+      "revision": "b67cf7a",
+      "tag": "xingchen-c4c3-old:b67cf7a",
+      "imageId": "sha256:41eab5457437cb4cc302f304613c7157ef57153f3038740195a72175ef80e013",
+      "size": 144357519,
+      "seconds": 563.2834504572675,
+      "exit": 0
+    }
+  ],
+  "image": {
+    "status": "PASS",
+    "imageId": "sha256:b5dc5741a55e873f2e2eb6dda4caaf64900e512a65dc9b8115c34d0538144534",
+    "size": 144358944,
+    "revision": "6559c89e48fd229b11a9027226733c21fa848c0d",
+    "runtimeArtifact": {
+      "size": 44682715,
+      "sha256": "b719dbc70e3984753dc252de2e0844df1e9329975ed0bc8abde1ec3f4cc26310"
+    },
+    "forbiddenLayerPaths": 0,
+    "credentialEnvKeys": 0
+  },
+  "mainChecks": [
+    "current fresh named-volume boot schema28 hardened runtime",
+    "current representative actual API state",
+    "real b67cf7a schema27 to current schema28 upgrade preserves state",
+    "upgrade restart and same-volume recreate idempotency",
+    "rollback via pre-upgrade SQLite backup not in-place downgrade",
+    "actual SIGKILL recent committed uncheckpointed WAL integrity healthy recovery",
+    "destructive multi-component change observed then formal restore returns backup point"
+  ],
+  "tailChecks": [
+    "formal URL restore and existing admin hash defeat changed bootstrap",
+    "old to current upgrade preserves explicit URL admin hash CLEAR over changed bootstrap",
+    "actual legacy archive readonly dry-run leaves authoritative state unchanged",
+    "corrupt backup fail closed leaves destination unchanged",
+    "fresh separate volume network image plus backup only recovery",
+    "explicit bind guard upgrade failure retains original volume and state",
+    "real fake OneBot inbound social model SSE outbound private owner group member",
+    "HTTPS internal CA auth CSRF cookie proxy and direct spoof resistance"
+  ],
+  "tailChecksEvidence": "completed c4c3-tail.py stdout; original runtime-summary retains main list and stage boundary status",
+  "runtimeBoundaryStatus": "PASS_PENDING_BROWSER_AUDIT_CLEANUP",
+  "upgrade": {
+    "old": {
+      "schema": 27,
+      "stateDigest": "97a9ea98ab4dd596f5f93a3372f516312cab982aab580b4c55d9fe92b257c235",
+      "assets": {
+        "assets/stickers/library/7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2.png": "7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2"
+      },
+      "clear": true,
+      "counts": {
+        "persons": 1,
+        "memberships": 0,
+        "relationship_terms": 1,
+        "memories": 1,
+        "prompt_profiles": 1,
+        "prompt_versions": 4,
+        "console_access_rules": 2,
+        "console_pricing": 1,
+        "stickers": 1,
+        "console_configuration": 0,
+        "console_admin_credentials": 1
+      }
+    },
+    "upgraded": {
+      "schema": 28,
+      "stateDigest": "97a9ea98ab4dd596f5f93a3372f516312cab982aab580b4c55d9fe92b257c235",
+      "assets": {
+        "assets/stickers/library/7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2.png": "7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2"
+      },
+      "clear": true,
+      "counts": {
+        "persons": 1,
+        "memberships": 0,
+        "relationship_terms": 1,
+        "memories": 1,
+        "prompt_profiles": 1,
+        "prompt_versions": 4,
+        "console_access_rules": 2,
+        "console_pricing": 1,
+        "stickers": 1,
+        "console_configuration": 0,
+        "console_admin_credentials": 1
+      }
+    },
+    "bootstrapPrecedence": {
+      "old": {
+        "schema": 27,
+        "stateDigest": "d0cd0d14619354f0c848366154630b219c7bf3482d3745d4007c61a1407b38b2",
+        "assets": {
+          "assets/stickers/library/7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2.png": "7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2"
+        },
+        "clear": true,
+        "counts": {
+          "persons": 1,
+          "memberships": 0,
+          "relationship_terms": 1,
+          "memories": 1,
+          "prompt_profiles": 1,
+          "prompt_versions": 4,
+          "console_access_rules": 2,
+          "console_pricing": 1,
+          "stickers": 1,
+          "console_configuration": 1,
+          "console_admin_credentials": 1
+        }
+      },
+      "upgraded": {
+        "schema": 28,
+        "stateDigest": "d0cd0d14619354f0c848366154630b219c7bf3482d3745d4007c61a1407b38b2",
+        "assets": {
+          "assets/stickers/library/7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2.png": "7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2"
+        },
+        "clear": true,
+        "counts": {
+          "persons": 1,
+          "memberships": 0,
+          "relationship_terms": 1,
+          "memories": 1,
+          "prompt_profiles": 1,
+          "prompt_versions": 4,
+          "console_access_rules": 2,
+          "console_pricing": 1,
+          "stickers": 1,
+          "console_configuration": 1,
+          "console_admin_credentials": 1
+        }
+      },
+      "loginWithOriginalPassword": true,
+      "changedBootstrapIgnored": true
+    },
+    "preUpgradeBackup": {
+      "backup": "COMPLETE",
+      "method": "offline SQLite Backup API + private filesystem snapshot",
+      "schema": 27,
+      "files": 3,
+      "notFormat1": true,
+      "seconds": 2.5893925451673567
+    }
+  },
+  "crash": {
+    "before": {
+      "schema": 28,
+      "stateDigest": "8bece4df4045a9e4b1f6fec7c1c38ff2d01fd6631d400e627b1d0b8f4622e0ec",
+      "assets": {
+        "assets/stickers/library/7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2.png": "7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2"
+      },
+      "clear": true,
+      "counts": {
+        "persons": 1,
+        "memberships": 0,
+        "relationship_terms": 1,
+        "memories": 3,
+        "prompt_profiles": 1,
+        "prompt_versions": 4,
+        "console_access_rules": 2,
+        "console_pricing": 1,
+        "stickers": 1,
+        "console_configuration": 0,
+        "console_admin_credentials": 1
+      }
+    },
+    "after": {
+      "schema": 28,
+      "stateDigest": "8bece4df4045a9e4b1f6fec7c1c38ff2d01fd6631d400e627b1d0b8f4622e0ec",
+      "assets": {
+        "assets/stickers/library/7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2.png": "7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2"
+      },
+      "clear": true,
+      "counts": {
+        "persons": 1,
+        "memberships": 0,
+        "relationship_terms": 1,
+        "memories": 3,
+        "prompt_profiles": 1,
+        "prompt_versions": 4,
+        "console_access_rules": 2,
+        "console_pricing": 1,
+        "stickers": 1,
+        "console_configuration": 0,
+        "console_admin_credentials": 1
+      }
+    },
+    "walBefore": {
+      "walPresent": true,
+      "walBytes": 57712,
+      "seconds": 2.1089972839690745
+    },
+    "walAfter": {
+      "walPresent": true,
+      "walBytes": 57712,
+      "seconds": 2.0213616341352463
+    },
+    "exit137AndNotOOMAsserted": true,
+    "readOnlySnapshotHolder": true
+  },
+  "disaster": {
+    "backup": {
+      "schema": 28,
+      "stateDigest": "8bece4df4045a9e4b1f6fec7c1c38ff2d01fd6631d400e627b1d0b8f4622e0ec",
+      "assets": {
+        "assets/stickers/library/7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2.png": "7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2"
+      },
+      "clear": true,
+      "counts": {
+        "persons": 1,
+        "memberships": 0,
+        "relationship_terms": 1,
+        "memories": 3,
+        "prompt_profiles": 1,
+        "prompt_versions": 4,
+        "console_access_rules": 2,
+        "console_pricing": 1,
+        "stickers": 1,
+        "console_configuration": 0,
+        "console_admin_credentials": 1
+      }
+    },
+    "mutated": {
+      "schema": 28,
+      "stateDigest": "5de65d578c088d70f137c7852749f7222df9d544c0e3e32dfa755e73ae282a70",
+      "assets": {},
+      "clear": true,
+      "counts": {
+        "persons": 1,
+        "memberships": 0,
+        "relationship_terms": 1,
+        "memories": 3,
+        "prompt_profiles": 1,
+        "prompt_versions": 4,
+        "console_access_rules": 2,
+        "console_pricing": 1,
+        "stickers": 1,
+        "console_configuration": 0,
+        "console_admin_credentials": 1
+      }
+    },
+    "restored": {
+      "schema": 28,
+      "stateDigest": "8bece4df4045a9e4b1f6fec7c1c38ff2d01fd6631d400e627b1d0b8f4622e0ec",
+      "assets": {
+        "assets/stickers/library/7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2.png": "7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2"
+      },
+      "clear": true,
+      "counts": {
+        "persons": 1,
+        "memberships": 0,
+        "relationship_terms": 1,
+        "memories": 3,
+        "prompt_profiles": 1,
+        "prompt_versions": 4,
+        "console_access_rules": 2,
+        "console_pricing": 1,
+        "stickers": 1,
+        "console_configuration": 0,
+        "console_admin_credentials": 1
+      }
+    },
+    "backupOperation": {
+      "backup": "COMPLETE",
+      "files": 4,
+      "schema": 28,
+      "seconds": 3.4000299707986414
+    },
+    "restoreOperation": {
+      "restore": "COMPLETE",
+      "rollbackRetained": true,
+      "healthValidation": "REQUIRED_AFTER_START",
+      "seconds": 3.5165661787614226
+    },
+    "configPoint": {
+      "schema": 28,
+      "stateDigest": "8511513a9b3ae3f0489d9d4005f552a0526cc9cc7286d9cc1c03df34c6f3cf52",
+      "assets": {
+        "assets/stickers/library/7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2.png": "7ed034662ed765f5a3ba131ab5e96c0fca4e25632c47d02447604088c1a660c2"
+      },
+      "clear": true,
+      "counts": {
+        "persons": 1,
+        "memberships": 0,
+        "relationship_terms": 1,
+        "memories": 3,
+        "prompt_profiles": 1,
+        "prompt_versions": 4,
+        "console_access_rules": 2,
+        "console_pricing": 1,
+        "stickers": 1,
+        "console_configuration": 1,
+        "console_admin_credentials": 1
+      }
+    },
+    "configBackup": {
+      "backup": "COMPLETE",
+      "files": 4,
+      "schema": 28,
+      "seconds": 2.8173001636750996
+    },
+    "configRestore": {
+      "restore": "COMPLETE",
+      "rollbackRetained": true,
+      "healthValidation": "REQUIRED_AFTER_START",
+      "seconds": 3.402729589957744
+    }
+  },
+  "fresh": {
+    "restore": {
+      "restore": "COMPLETE",
+      "rollbackRetained": false,
+      "healthValidation": "REQUIRED_AFTER_START",
+      "seconds": 3.2743309130892158
+    },
+    "boot": {
+      "healthReadySeconds": 102.71209883131087,
+      "applicationStartupSeconds": 52.71,
+      "id": "649aae29a29bb89691c2c7523924fd8b21c9cc3528cbb0215e878a2c91ba4b2e"
+    },
+    "newVolumeAndNetwork": true,
+    "originalDataVolumeNotMounted": true
+  },
+  "gateway": {
+    "metrics": {
+      "model": 2,
+      "private": 1,
+      "group": 1,
+      "ws": 1
+    },
+    "proof": {
+      "privateOwnerGroupMember": true,
+      "messages": 2,
+      "modelUsagePersisted": true,
+      "seconds": 3.216709975618869
+    }
+  },
+  "legacyDryRun": {
+    "sourceFingerprint": "2bcdc44f0a2bf811396069242e80b9835984deee421af9b64438d95ccbe1193a",
+    "sourceType": "qq-bridge-0.1.7-config",
+    "discovered": 2,
+    "duplicates": 0,
+    "ambiguous": 0,
+    "unsupportedFields": 12,
+    "secretSectionsSkipped": 3,
+    "SKIPPED_AMBIGUOUS": 1,
+    "SKIPPED_UNSUPPORTED": 13,
+    "SECRET_SKIP": 3,
+    "openAccessSkipped": false,
+    "status": "DRY_RUN_PASS",
+    "importable": 2,
+    "imported": 0,
+    "conflicts": 0,
+    "seconds": 2.9683839278295636,
+    "databaseBytesUnchanged": true
+  },
+  "securityAudit": {
+    "status": "PASS",
+    "backupFormat": 1,
+    "backupSchema": 28,
+    "bundlesAudited": 2,
+    "corruptRejection": {
+      "status": "FAILED",
+      "diagnostic": "missing or truncated payload"
+    },
+    "portableRelativePayloadPaths": true,
+    "hostContainerVolumeIdentifiersAbsent": true,
+    "bundlePrivateUid10001": true,
+    "bundleDirectories0700Files0600": true,
+    "runtimeLogSecretMarkerLeaks": 0,
+    "runtimeLogsChecked": [
+      "xingchen-c4c3-caddy",
+      "xingchen-c4c3-current"
+    ],
+    "coreAndCaddySecurityInspect": true,
+    "noObservedOOM": true,
+    "realProductionCredentialsUsed": false
+  },
+  "performance": {
+    "freshBoot": {
+      "healthReadySeconds": 106.47498944494873,
+      "applicationStartupSeconds": 83.641,
+      "id": "f8f913f4bb2d7d8fdb44f1e9a02ff4cadee65a7531f2c51d224bbae9119ce751"
+    },
+    "oldBoot": {
+      "healthReadySeconds": 69.01764107309282,
+      "applicationStartupSeconds": 54.216,
+      "id": "abcb04920768d17285beab6730e2bda53816167f3a3722b424817afddafab777"
+    },
+    "upgradeBoot": {
+      "healthReadySeconds": 100.39076389884576,
+      "applicationStartupSeconds": 49.006,
+      "id": "fae23f41c7c35fa32cc37fe059c0c707210ed16943d1ba4a57ff129cef723260"
+    },
+    "idle": "188.6MiB / 768MiB"
+  },
+  "tests": {
+    "backend": {
+      "suites": 48,
+      "passed": 341,
+      "failed": 0,
+      "skipped": 0
+    },
+    "frontend": {
+      "passed": 38,
+      "failed": 0
+    },
+    "typecheck": "PASS",
+    "bootJar": "PASS",
+    "linuxTools": {
+      "passed": 19,
+      "failed": 0
+    },
+    "browser": {
+      "regularPassed": 17,
+      "regularOptInSkipped": 2,
+      "actualDockerPassed": 3,
+      "actualDockerStats": {
+        "startTime": "2026-10-04T22:22:08.496Z",
+        "duration": 49980.864,
+        "expected": 3,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "distinctPassedCases": 20,
+      "notSingleCombinedRun": true
+    }
+  },
+  "resources": {
+    "rootStartBytes": 18532409344,
+    "rootLowestBytes": 15158906880,
+    "rootFinishBytes": 18526896128,
+    "cleanupRootFreeBytes": 18527043584,
+    "totalSamples": 697,
+    "samples": {"build": 269, "runtime": 407, "imageAudit": 11, "caddyBuild": 10},
+    "lowestAvailableMemoryBytes": 1874759680,
+    "swap": "NONE",
+    "safetyStop": false,
+    "warning": false,
+    "build": {
+      "start": {
+        "time": 1791148295.7367365,
+        "free": 18519949312,
+        "available": 3121688576,
+        "df": "Filesystem       1B-blocks        Used   Available Use% Mounted on\n/dev/vda1      31024283648 12487557120 18519949312  41% /\n"
+      },
+      "minFree": 15158906880,
+      "minAvailable": 1874759680,
+      "warning": false,
+      "safetyStop": false,
+      "builds": [
+        {
+          "name": "current",
+          "revision": "6559c89e48fd229b11a9027226733c21fa848c0d",
+          "tag": "xingchen-c4c3-current:6559c89e48fd229b11a9027226733c21fa848c0d",
+          "imageId": "sha256:b5dc5741a55e873f2e2eb6dda4caaf64900e512a65dc9b8115c34d0538144534",
+          "size": 144358944,
+          "seconds": 779.6023565726355,
+          "exit": 0
+        },
+        {
+          "name": "old",
+          "revision": "b67cf7a",
+          "tag": "xingchen-c4c3-old:b67cf7a",
+          "imageId": "sha256:41eab5457437cb4cc302f304613c7157ef57153f3038740195a72175ef80e013",
+          "size": 144357519,
+          "seconds": 563.2834504572675,
+          "exit": 0
+        }
+      ],
+      "status": "PASS",
+      "finish": {
+        "time": 1791149645.6385784,
+        "free": 17931771904,
+        "available": 3081129984,
+        "df": "Filesystem       1B-blocks        Used   Available Use% Mounted on\n/dev/vda1      31024283648 13075734528 17931771904  43% /\n"
+      }
+    },
+    "main": {
+      "minFree": 17867784192,
+      "minAvailable": 2873044992,
+      "safetyStop": false,
+      "warning": false
+    },
+    "crash": {
+      "minFree": 17866289152,
+      "minAvailable": 2879696896,
+      "safetyStop": false,
+      "warning": false
+    },
+    "tail": {
+      "minFree": 17861849088,
+      "minAvailable": 2826395648,
+      "safetyStop": false,
+      "warning": false
+    },
+    "caddy": {
+      "minFree": 17726943232,
+      "minAvailable": 3045376000,
+      "safetyStop": false,
+      "exit": 0
+    }
+  },
+  "cleanup": {
+    "remaining": {
+      "containers": [],
+      "networks": [],
+      "volumes": [],
+      "images": []
+    },
+    "buildCache": "0B",
+    "temporaryOldSourceBackupCorruptTlsRemoved": true,
+    "ownTunnelStopped": true,
+    "temporaryPublicCaRemoved": true
+  },
+  "production": {
+    "unchanged": true,
+    "containers": [
+      {
+        "name": "/zetu-phase4c-api-1",
+        "id": "234445abcb59d598aa2c517a4cfed91ad0f5fbd56eace4aa0f001c79df3be10b",
+        "image": "sha256:5d6e239cdbfb29d698cf728e881cf03bb98a26b5d33898bd497ea8b3edaf1c83",
+        "status": "running",
+        "health": "healthy",
+        "restarts": 0
+      },
+      {
+        "name": "/zetu-phase4c-web-1",
+        "id": "ae7a7ee425bcc0c3dd3eb21ac5b38e71e5acf1303656eef46337ea7ccfc04c58",
+        "image": "sha256:73f45ef740b2fc0dd81df2ec6b0ec4b040c27f8097b351a75a4388fccb163a30",
+        "status": "running",
+        "health": "healthy",
+        "restarts": 0
+      },
+      {
+        "name": "/zetu-phase4c-caddy-1",
+        "id": "97eacca2ab721799ed083cfd2b160aff6dfc9a9d26890851a814111e2be787af",
+        "image": "sha256:de23def33b17fb5d1290b0f6c2add1d70780e52341896c00a4c8a2a2fe9d355e",
+        "status": "running",
+        "health": null,
+        "restarts": 0
+      }
+    ],
+    "mountsAndNetworksEqual": true,
+    "decommissionedQQAbsent": true,
+    "archiveMtimeAndSha256Unchanged": true
+  },
+  "matrix": {
+    "rows": 128,
+    "unique": 128,
+    "TESTED": 79,
+    "FOUNDATION": 31,
+    "PLANNED": 18,
+    "NEEDS_REVIEW": 0,
+    "testedQualifiedReferences": 61,
+    "missingMethods": [],
+    "missingFiles": [],
+    "missingIndexedMethods": []
+  },
+  "failureHistory": [
+    "First fresh backend attempt: 3 Windows cleanup/timing failures; each affected class passed alone; entire fresh serial suite later passed 341/341. Root cause not proven; no timeout inflation or product patch.",
+    "Initial browser Persona heading ambiguity corrected by exact selector and committed; complete regular suite then passed 17 cases.",
+    "First runtime fixture compared decimal string with float; corrected fixture only, resumed seeded state.",
+    "First SIGKILL had already-checkpointed zero-byte WAL; did not count as uncheckpointed WAL evidence. A read-only snapshot holder retained 57712-byte committed WAL for successful drill."
+  ],
+  "scope": {
+    "realQQ": false,
+    "realDSH": false,
+    "realDeepSeek": false,
+    "publicACME": "DOCUMENTED_NOT_TESTED",
+    "powerLossDurability": "NOT_CLAIMED",
+    "fullLegacySemanticMigration": "FOUNDATION",
+    "phase5": "NOT_STARTED"
+  }
+}

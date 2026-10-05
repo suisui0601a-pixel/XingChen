@@ -1,0 +1,8 @@
+xingchen:
+  live:
+    enabled: true
+  model:
+    provider: deepseek-official
+    model: ${XINGCHEN_DEEPSEEK_MODEL:deepseek-chat}
+server:
+  address: 127.0.0.1

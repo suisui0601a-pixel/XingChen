@@ -1,0 +1,62 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { AccessPage, LogsPage, OperationsPage, SecurityPage } from './AdminOpsPages'
+import { api, ApiError } from './api'
+vi.mock('./api', async importOriginal => ({...await importOriginal<typeof import('./api')>(), api:vi.fn()}))
+afterEach(()=>{cleanup();vi.resetAllMocks()})
+describe('safe operational console states',()=>{
+ it('Operations catches failure, ends loading and supports a successful retry',async()=>{
+  vi.mocked(api).mockRejectedValueOnce(new ApiError(500,'INTERNAL_ERROR','private exception body')).mockResolvedValueOnce({configApplyTracking:'NOT_TRACKED'})
+  render(<OperationsPage language="zh-CN"/>)
+  expect(await screen.findByRole('alert')).toHaveTextContent('服务暂时无法')
+  expect(screen.queryByText('private exception body')).not.toBeInTheDocument()
+  expect(screen.queryByText('正在加载')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'重试'}))
+  expect(await screen.findByText('未跟踪 (NOT_TRACKED)')).toBeInTheDocument()
+ })
+ it('Logs distinguishes successful empty data from failure and clears previous rows',async()=>{
+  vi.mocked(api).mockResolvedValueOnce({records:[]}).mockRejectedValueOnce(new ApiError(403,'CSRF_FAILURE','hidden detail')).mockResolvedValueOnce([])
+  render(<LogsPage language="en-US"/>)
+  expect(await screen.findByText('No records')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'Apply filters'}))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Request verification failed')
+  expect(screen.queryByText('No records')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'Audit trail'}))
+  expect(await screen.findByText('No records')).toBeInTheDocument()
+ })
+ it('Access preview clears an old ALLOW before a failed subsequent query',async()=>{
+  vi.mocked(api).mockResolvedValueOnce({revision:1,owner:{platform:'QQ'},rules:[]}).mockResolvedValueOnce({decision:'ALLOW',reason:'EXPLICIT_ALLOW'}).mockRejectedValueOnce(new ApiError(500,'INTERNAL_ERROR','private detail'))
+  render(<AccessPage language="en-US"/>)
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Save policy'})).toBeEnabled())
+  fireEvent.change(screen.getByLabelText('Stable user ID'),{target:{value:'member'}})
+  fireEvent.click(screen.getByRole('button',{name:'Evaluate (no model call)'}))
+  expect(await screen.findByText('Allow (ALLOW) · Explicit allow (EXPLICIT_ALLOW)')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'Evaluate (no model call)'}))
+  expect(screen.queryByText('Allow (ALLOW) · Explicit allow (EXPLICIT_ALLOW)')).not.toBeInTheDocument()
+  expect(await screen.findByRole('alert')).toHaveTextContent('The service could not complete')
+ })
+ it('Access ignores an older response when a newer query replaces it',async()=>{
+  let resolveOld:(value:unknown)=>void=()=>{}
+  vi.mocked(api).mockResolvedValueOnce({revision:1,owner:{},rules:[]}).mockImplementationOnce(()=>new Promise(resolve=>{resolveOld=resolve})).mockResolvedValueOnce({decision:'DENY',reason:'DEFAULT_DENY'})
+  render(<AccessPage language="en-US"/>)
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Save policy'})).toBeEnabled())
+  fireEvent.click(screen.getByRole('button',{name:'Evaluate (no model call)'}))
+  fireEvent.change(screen.getByLabelText('Stable user ID'),{target:{value:'second'}})
+  fireEvent.click(screen.getByRole('button',{name:'Evaluate (no model call)'}))
+  expect(await screen.findByText('Deny (DENY) · Default deny (DEFAULT_DENY)')).toBeInTheDocument()
+  resolveOld({decision:'ALLOW',reason:'EXPLICIT_ALLOW'})
+  await waitFor(()=>expect(screen.queryByText('Allow (ALLOW) · Explicit allow (EXPLICIT_ALLOW)')).not.toBeInTheDocument())
+ })
+ it('Password mismatch is associated with fields and never submitted',async()=>{
+  vi.mocked(api).mockResolvedValueOnce({passwordConfigured:true})
+  render(<SecurityPage language="en-US"/>)
+  await screen.findByText('Password configured')
+  fireEvent.change(screen.getByLabelText('Current password'),{target:{value:'original-password'}})
+  fireEvent.change(screen.getByLabelText('New password (at least 14 characters)'),{target:{value:'new-password-for-test'}})
+  fireEvent.change(screen.getByLabelText('Confirm new password'),{target:{value:'different-password'}})
+  fireEvent.submit(screen.getByRole('button',{name:'Update and invalidate sessions'}).closest('form')!)
+  expect(screen.getByRole('alert')).toHaveTextContent('New passwords do not match')
+  expect(screen.getByLabelText('Confirm new password')).toHaveAttribute('aria-describedby','password-error')
+  expect(api).toHaveBeenCalledTimes(1)
+ })
+})

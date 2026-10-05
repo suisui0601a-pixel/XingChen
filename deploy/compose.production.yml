@@ -1,0 +1,51 @@
+name: xingchen-production
+services:
+  xingchen-core:
+    image: ${XINGCHEN_IMAGE:?Set the exact audited image reference}
+    container_name: xingchen-core
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    mem_limit: 768m
+    mem_reservation: 256m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      SPRING_PROFILES_ACTIVE: container
+      XINGCHEN_DATA_DIR: /data
+      XINGCHEN_CONSOLE_BIND: 0.0.0.0
+      XINGCHEN_CONSOLE_PORT: "3200"
+      XINGCHEN_CONSOLE_ALLOW_REMOTE: "true"
+      XINGCHEN_CONSOLE_INITIALIZE_ENABLED: "false"
+      XINGCHEN_CONSOLE_USE_PERSISTED_ADMIN: "true"
+      XINGCHEN_CONSOLE_COOKIE_SECURE: "true"
+      XINGCHEN_PUBLIC_BASE_URL: https://deepseek.xn--49sp5w.online
+      XINGCHEN_SOCIAL_ENABLED: "false"
+      XINGCHEN_INTEGRATIONS_ONEBOT_ENABLED: "false"
+      XINGCHEN_INTEGRATIONS_DSH_ENABLED: "false"
+      XINGCHEN_INTEGRATIONS_MODEL_ENABLED: "false"
+    volumes:
+      - type: volume
+        source: production-data
+        target: /data
+        volume:
+          subpath: live
+    networks: [edge]
+volumes:
+  production-data:
+    name: xingchen-prod-data
+    external: true
+networks:
+  edge:
+    name: xingchen-prod-edge
+    external: true

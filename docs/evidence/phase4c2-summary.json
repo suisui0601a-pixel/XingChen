@@ -1,0 +1,22 @@
+{
+  "phase": "4C-2",
+  "status": "COMPLETE",
+  "backend": {"passed": 341, "failed": 0, "skipped": 0},
+  "frontend": {"passed": 38},
+  "linuxRecoveryMigrationDeployment": {"passed": 19},
+  "browser": {"existingSuitePassed": 17, "existingOptInSkipped": 2, "httpsContainerPassed": 2},
+  "rootFreeBytes": {"start": 18893520896, "minimum": 15804817408, "finish": 18533744640},
+  "minimumAvailableMemoryBytes": 1838559232,
+  "swapCreated": false,
+  "observedOom": false,
+  "backup": {"status": "COMPLETE", "files": 4, "schema": 28},
+  "before": {"dbStateDigest": "6124941d9861a8227e518b199c5f88f1cc77ed6378726609dbedc5f8a64d7643", "assetSha256": "2640059609118b695c139804676372eca75c30d30e5906775902d13e44f5356c", "clear": true},
+  "mutated": {"dbStateDigest": "2a6876df1a5d01702edccae90a174d03ae3213113c5742d56c45ce8e630049ed", "assetSha256": null, "clear": true},
+  "restored": {"dbStateDigest": "6124941d9861a8227e518b199c5f88f1cc77ed6378726609dbedc5f8a64d7643", "assetSha256": "2640059609118b695c139804676372eca75c30d30e5906775902d13e44f5356c", "clear": true, "rollbackRetained": true},
+  "actualLegacyDryRun": {"status": "DRY_RUN_PASS", "discovered": 2, "importable": 2, "imported": 0, "SKIPPED_AMBIGUOUS": 1, "SKIPPED_UNSUPPORTED": 13, "SECRET_SKIP": 3, "targetDbUnchanged": true},
+  "legacyArchiveUnchanged": true,
+  "zetuIdsStatusHealthRestartsUnchanged": true,
+  "remainingStaging": {"containers": [], "networks": [], "volumes": [], "images": []},
+  "actualPublicAcme": "DOCUMENTED",
+  "remainingBlockers": []
+}

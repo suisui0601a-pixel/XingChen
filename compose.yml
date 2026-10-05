@@ -1,0 +1,51 @@
+name: xingchen
+services:
+  xingchen-core:
+    image: xingchen-core:${XINGCHEN_VERSION:-0.1.0-SNAPSHOT}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        XINGCHEN_VERSION: ${XINGCHEN_VERSION:-0.1.0-SNAPSHOT}
+        XINGCHEN_GIT_COMMIT: ${XINGCHEN_GIT_COMMIT:-unavailable}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+    ports:
+      - "127.0.0.1:3200:3200"
+    environment:
+      SPRING_PROFILES_ACTIVE: container
+      XINGCHEN_DATA_DIR: /data
+      XINGCHEN_CONSOLE_ADMIN_USER: ${XINGCHEN_CONSOLE_ADMIN_USER:-}
+      XINGCHEN_CONSOLE_ADMIN_PASSWORD: ${XINGCHEN_CONSOLE_ADMIN_PASSWORD:-}
+      XINGCHEN_CONSOLE_ALLOW_REMOTE: ${XINGCHEN_CONSOLE_ALLOW_REMOTE:-false}
+      XINGCHEN_CONSOLE_COOKIE_SECURE: ${XINGCHEN_CONSOLE_COOKIE_SECURE:-false}
+      XINGCHEN_PUBLIC_BASE_URL: ${XINGCHEN_PUBLIC_BASE_URL:-}
+      XINGCHEN_OWNER_ID: ${XINGCHEN_OWNER_ID:-}
+      ONEBOT_WS_URL: ${ONEBOT_WS_URL:-ws://127.0.0.1:3001}
+      ONEBOT_HTTP_URL: ${ONEBOT_HTTP_URL:-http://127.0.0.1:3000}
+      DSH_BASE_URL: ${DSH_BASE_URL:-http://127.0.0.1:3190}
+      XINGCHEN_GIT_COMMIT: ${XINGCHEN_GIT_COMMIT:-unavailable}
+      XINGCHEN_VERSION: ${XINGCHEN_VERSION:-0.1.0-SNAPSHOT}
+      XINGCHEN_SOCIAL_ENABLED: "false"
+      XINGCHEN_INTEGRATIONS_ONEBOT_ENABLED: "false"
+      XINGCHEN_INTEGRATIONS_DSH_ENABLED: "false"
+      XINGCHEN_INTEGRATIONS_MODEL_ENABLED: "false"
+    volumes:
+      - xingchen-data:/data
+    networks:
+      - xingchen-core
+
+volumes:
+  xingchen-data:
+
+networks:
+  xingchen-core:
+    name: xingchen-core-net
+    driver: bridge

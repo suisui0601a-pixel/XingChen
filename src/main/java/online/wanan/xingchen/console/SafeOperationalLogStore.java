@@ -1,0 +1,10 @@
+package online.wanan.xingchen.console;
+import org.springframework.stereotype.Component;import java.time.Instant;import java.util.*;import java.util.concurrent.ConcurrentLinkedDeque;
+/** Bounded, allow-listed operational events; never accepts arbitrary source text or exceptions. */
+@Component public final class SafeOperationalLogStore {
+ private final ConcurrentLinkedDeque<Map<String,Object>> events=new ConcurrentLinkedDeque<>();private static final int LIMIT=500;
+ public void record(String level,String category,String code){if(!Set.of("INFO","WARN","ERROR").contains(level)||!Set.of("AUTH","SECURITY","CONFIG","RUNTIME").contains(category)||!Set.of("LOGIN_SUCCEEDED","LOGIN_FAILED","LOGIN_RATE_LIMITED","PASSWORD_CHANGED","ACCESS_RULES_CHANGED").contains(code))return;events.addFirst(Map.of("timestamp",Instant.now().toString(),"level",level,"component",category,"message",code,"correlationId",UUID.randomUUID().toString()));while(events.size()>LIMIT)events.pollLast();}
+ public List<Map<String,Object>> list(String level,String component,String from,String to,String correlationId,int page,int size){if(page<0||size<1||size>100)throw new IllegalArgumentException("Invalid page bounds");String start=instant(from),end=instant(to);return events.stream().filter(e->level==null||level.isBlank()||e.get("level").equals(level.toUpperCase(Locale.ROOT))).filter(e->component==null||component.isBlank()||e.get("component").equals(component.toUpperCase(Locale.ROOT))).filter(e->correlationId==null||correlationId.isBlank()||e.get("correlationId").equals(correlationId)).filter(e->start==null||Objects.toString(e.get("timestamp")).compareTo(start)>=0).filter(e->end==null||Objects.toString(e.get("timestamp")).compareTo(end)<=0).skip((long)page*size).limit(size).toList();}
+ private String instant(String value){if(value==null||value.isBlank())return null;try{return java.time.Instant.parse(value).toString();}catch(Exception ex){throw new IllegalArgumentException("Time filter must be an ISO-8601 UTC instant");}}
+ public int retention(){return LIMIT;}
+}

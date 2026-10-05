@@ -1,0 +1,73 @@
+package online.wanan.xingchen.adapter.dsh;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.*;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/** Minimal loopback HTTP/WebSocket fixture implementing the documented RC.2 envelopes. */
+public final class FakeDshRc2Server implements AutoCloseable {
+    enum MuxMode { NORMAL, END, DISCONNECT, MALFORMED, FOREIGN_SESSION, FOREIGN_STREAM }
+    public record Request(String endpoint,JsonNode envelope,String cookie){}
+    private static final String WS_GUID="258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    private final ObjectMapper mapper=new ObjectMapper();private final ServerSocket server;private final ExecutorService workers=Executors.newCachedThreadPool(r->{Thread t=new Thread(r,"fake-dsh-rc2");t.setDaemon(true);return t;});private final Thread acceptor;
+    private final String token;private final CopyOnWriteArrayList<Request> requests=new CopyOnWriteArrayList<>();private final ConcurrentMap<String,List<String>> queues=new ConcurrentHashMap<>();private final ConcurrentMap<String,java.util.concurrent.atomic.AtomicInteger> eventResultsReceived=new ConcurrentHashMap<>(),eventResultsApplied=new ConcurrentHashMap<>();private final java.util.concurrent.atomic.AtomicInteger eventConnections=new java.util.concurrent.atomic.AtomicInteger();private final AtomicBoolean closed=new AtomicBoolean();private volatile Socket eventSocket;
+    volatile String delayEndpoint;volatile long delayMillis;volatile String malformedEndpoint;volatile String remoteErrorEndpoint;volatile boolean badRpcId;volatile boolean expireNextCookie;volatile boolean dropResultBeforeRead;volatile boolean dropResultAfterRead;volatile boolean timeoutBeforeResultRead;volatile boolean timeoutAfterResultCommit;volatile long resultDelayMillis;volatile boolean disconnectEventOnce;volatile String replacementEventClientId;volatile MuxMode muxMode=MuxMode.NORMAL;volatile String expectedCookie="DSHSession=fake-cookie";volatile JsonNode eventWaterfall;private final CopyOnWriteArrayList<JsonNode> eventWaterfalls=new CopyOnWriteArrayList<>();volatile String eventClientId="event-client-1";
+    public FakeDshRc2Server(String token)throws IOException{this.token=token;server=new ServerSocket();server.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),0));acceptor=new Thread(this::accept,"fake-dsh-accept");acceptor.setDaemon(true);acceptor.start();}
+    public URI baseUri(){return URI.create("http://127.0.0.1:"+server.getLocalPort());}
+    public List<Request> requests(){return List.copyOf(requests);}
+    public List<Request> requests(String endpoint){return requests.stream().filter(r->r.endpoint().equals(endpoint)).toList();}
+    public int eventResultsReceived(String eventId){return eventResultsReceived.getOrDefault(eventId,new java.util.concurrent.atomic.AtomicInteger()).get();}
+    public int eventResultsApplied(String eventId){return eventResultsApplied.getOrDefault(eventId,new java.util.concurrent.atomic.AtomicInteger()).get();}
+    public int eventConnections(){return eventConnections.get();}
+    public void eventClientId(String value){eventClientId=value;}
+    public void dropNextEventResultBeforeRead(){dropResultBeforeRead=true;}
+    public void dropNextEventResultAfterRead(){dropResultAfterRead=true;}
+    public void timeoutBeforeReadingNextEventResult(long millis){timeoutBeforeResultRead=true;resultDelayMillis=millis;}
+    public void timeoutAfterEventResultCommit(long millis){timeoutAfterResultCommit=true;resultDelayMillis=millis;}
+    public void rejectNextEventResult(){remoteErrorEndpoint="$events/result";}
+    public void disconnectEventAfterFirstDelivery(String replacementClientId){disconnectEventOnce=true;replacementEventClientId=replacementClientId;}
+    public void disconnectEventStream(){Socket current=eventSocket;if(current!=null)try{current.close();}catch(IOException ignored){}}
+    void queue(String sessionId,String... ids){queues.put(sessionId,List.of(ids));}
+    void timeoutNext(String endpoint,long millis){delayEndpoint=endpoint;delayMillis=millis;}
+    void malformedNext(String endpoint){malformedEndpoint=endpoint;}
+    public void waterfall(String eventId,String agentId,String event,JsonNode request){ObjectNode frame=mapper.createObjectNode().put("type","waterfall").put("event",event).put("eventId",eventId).put("agentId",agentId);frame.set("request",request.deepCopy());eventWaterfall=frame;eventWaterfalls.add(frame);}
+    private void accept(){while(!closed.get())try{Socket socket=server.accept();workers.execute(()->handle(socket));}catch(IOException e){if(!closed.get()){} }}
+    private void handle(Socket socket){try(socket){socket.setSoTimeout(5000);var in=new BufferedInputStream(socket.getInputStream());var out=new BufferedOutputStream(socket.getOutputStream());String requestLine=line(in);if(requestLine==null)return;String[] parts=requestLine.split(" ",3);if(parts.length<2)return;String method=parts[0],path=parts[1];Map<String,String> headers=headers(in);
+        if(path.startsWith("/api/remote.mux")&&"websocket".equalsIgnoreCase(headers.getOrDefault("upgrade",""))){websocket(socket,in,out,headers);return;}
+        if("GET".equals(method)&&path.startsWith("/?token=")){String supplied=URLDecoder.decode(path.substring(path.indexOf("token=")+6),StandardCharsets.UTF_8);if(!token.equals(supplied)){write(out,"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");return;}write(out,"HTTP/1.1 200 OK\r\nSet-Cookie: "+expectedCookie+"; Path=/; HttpOnly; SameSite=Strict\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");return;}
+        if(!"POST".equals(method)||!path.startsWith("/api/")){write(out,"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");return;}
+        String endpoint=path.substring("/api/".length());if(endpoint.equals("$events/result")&&dropResultBeforeRead){dropResultBeforeRead=false;return;}if(endpoint.equals("$events/result")&&timeoutBeforeResultRead){timeoutBeforeResultRead=false;Thread.sleep(resultDelayMillis);return;}
+        int length=Integer.parseInt(headers.getOrDefault("content-length","0"));byte[] body=in.readNBytes(length);JsonNode envelope=mapper.readTree(body);requests.add(new Request(endpoint,envelope,headers.getOrDefault("cookie","")));
+        if(!expectedCookie.equals(headers.get("cookie"))||expireNextCookie){expireNextCookie=false;write(out,"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");return;}
+        String resultEventId=envelope.path("payload").path("args").path("eventId").asText();if(endpoint.equals("$events/result")){eventResultsReceived.computeIfAbsent(resultEventId,k->new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet();if(dropResultAfterRead){dropResultAfterRead=false;return;}if(!endpoint.equals(remoteErrorEndpoint))eventResultsApplied.computeIfAbsent(resultEventId,k->new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet();if(timeoutAfterResultCommit){timeoutAfterResultCommit=false;Thread.sleep(resultDelayMillis);}}
+        if(endpoint.equals(delayEndpoint)){Thread.sleep(delayMillis);delayEndpoint=null;}
+        String rpcId=badRpcId?"foreign-rpc-id":envelope.path("rpcId").asText();badRpcId=false;
+        if(endpoint.equals(malformedEndpoint)){malformedEndpoint=null;writeJson(out,"{not-json");return;}
+        ObjectNode value=mapper.createObjectNode();switch(endpoint){case "workspace/create"->{value.putObject("workspace").put("id","workspace-fixture");value.put("created",false);}case "session/create"->value.put("sessionId","session-fixture");case "session/prompt","session/cancel","session/updateQueue"->value.put("accepted",true);case "session/selectModel"->value.putObject("selected").put("provider",envelope.path("payload").path("args").path("request").path("provider").asText()).put("model",envelope.path("payload").path("args").path("request").path("model").asText());case "workspace/archiveSession"->value.putArray("archivedSessionIds").add(envelope.path("payload").path("args").path("request").path("sessionId").asText());default->{} }
+        ObjectNode result=mapper.createObjectNode();if(endpoint.equals(remoteErrorEndpoint)){remoteErrorEndpoint=null;result.put("ok",false).putObject("error").put("code","workspace/not-found").put("message","private fixture error").putObject("details");}else{result.put("ok",true);if(!endpoint.equals("$events/result"))result.set("value",value);}ObjectNode response=mapper.createObjectNode().put("type","server-response").put("rpcId",rpcId);response.set("result",result);writeJson(out,response.toString());
+    }catch(Exception ignored){try{socket.close();}catch(IOException ignoredClose){}}}
+    private void websocket(Socket socket,BufferedInputStream in,BufferedOutputStream out,Map<String,String> headers)throws Exception{if(!expectedCookie.equals(headers.get("cookie"))){write(out,"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");return;}String key=headers.get("sec-websocket-key");String accept=Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-1").digest((key+WS_GUID).getBytes(StandardCharsets.US_ASCII)));write(out,"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: "+accept+"\r\n\r\n");String open=readClientFrame(in);JsonNode request=mapper.readTree(open);String streamId=request.path("streamId").asText(),endpoint=request.path("endpoint").asText();String session=request.path("payload").path("args").path("request").path("address").path("sessionId").asText("session-fixture");if(endpoint.equals("$events")){eventSocket=socket;eventConnections.incrementAndGet();}
+        if(endpoint.equals("$events")){String deliveredClient=eventClientId;boolean disconnect=disconnectEventOnce&&!eventWaterfalls.isEmpty();if(disconnect){disconnectEventOnce=false;if(replacementEventClientId!=null)eventClientId=replacementEventClientId;}ObjectNode ready=mapper.createObjectNode().put("type","ready").put("clientId",deliveredClient);ready.putObject("host").put("home","/fixture");sendItem(out,streamId,ready);for(JsonNode pending:eventWaterfalls)sendItem(out,streamId,pending);if(disconnect){socketClose(out);return;}}
+        else if(endpoint.equals("session/control")){ObjectNode val=mapper.createObjectNode().put("type","baseline");ObjectNode queuesNode=val.putObject("value").putObject("queues");var ids=queues.getOrDefault(session,List.of());var arr=queuesNode.putArray(session);for(String id:ids)arr.addObject().put("id",id);sendItem(out,streamId,val);}
+        else if(endpoint.equals("session/follow")){if(muxMode==MuxMode.MALFORMED){sendText(out,"not-json");}else{ObjectNode snapshot=mapper.createObjectNode().put("type","snapshot").put("cursor",0);snapshot.putObject("header").put("id",muxMode==MuxMode.FOREIGN_SESSION?"foreign-session":session);snapshot.set("records",mapper.createArrayNode());sendItem(out,muxMode==MuxMode.FOREIGN_STREAM?"foreign-stream":streamId,snapshot);if(muxMode==MuxMode.DISCONNECT){socketClose(out);return;}ObjectNode event=mapper.createObjectNode().put("type","event");event.putObject("event").put("type","assistant/message").put("seq",1).put("time",1).set("data",mapper.createObjectNode().put("text","fixture"));sendItem(out,streamId,event);if(muxMode==MuxMode.END){ObjectNode end=mapper.createObjectNode().put("type","end").put("streamId",streamId);sendText(out,end.toString());}}}
+        // A logical mux end is not a TCP disconnect. Keep the transport alive
+        // until the client consumes end and initiates its WebSocket close.
+        while(!closed.get()){String frame=readClientFrame(in);if(frame==null)return;JsonNode msg=mapper.readTree(frame);if("cancel".equals(msg.path("type").asText())||"close".equals(msg.path("type").asText()))return;}
+    }
+    private void sendItem(OutputStream out,String streamId,JsonNode value)throws IOException{ObjectNode f=mapper.createObjectNode().put("type","item").put("streamId",streamId);f.set("value",value);sendText(out,f.toString());}
+    private static void socketClose(OutputStream out)throws IOException{out.write(new byte[]{(byte)0x88,0});out.flush();}
+    private static String readClientFrame(InputStream in)throws IOException{int b1=in.read();if(b1<0)return null;int b2=in.read();if(b2<0)return null;int op=b1&0x0f;if(op==8)return null;long len=b2&0x7f;if(len==126)len=((in.read()&255)<<8)|(in.read()&255);else if(len==127){len=0;for(int i=0;i<8;i++)len=(len<<8)|(in.read()&255);}boolean masked=(b2&0x80)!=0;byte[] mask=masked?in.readNBytes(4):new byte[0];if(len>1_048_576)throw new IOException("frame too large");byte[] bytes=in.readNBytes((int)len);if(bytes.length!=len)throw new EOFException();if(masked)for(int i=0;i<bytes.length;i++)bytes[i]^=mask[i%4];return new String(bytes,StandardCharsets.UTF_8);}
+    private static void sendText(OutputStream out,String text)throws IOException{byte[] data=text.getBytes(StandardCharsets.UTF_8);out.write(0x81);if(data.length<126)out.write(data.length);else{out.write(126);out.write(data.length>>>8);out.write(data.length);}out.write(data);out.flush();}
+    private static Map<String,String> headers(InputStream in)throws IOException{Map<String,String> m=new TreeMap<>(String.CASE_INSENSITIVE_ORDER);for(String s;(s=line(in))!=null&&!s.isEmpty();){int i=s.indexOf(':');if(i>0)m.put(s.substring(0,i).trim(),s.substring(i+1).trim());}return m;}
+    private static String line(InputStream in)throws IOException{ByteArrayOutputStream b=new ByteArrayOutputStream();int p=-1;for(int c;(c=in.read())>=0;){if(p=='\r'&&c=='\n'){byte[] a=b.toByteArray();return new String(a,0,Math.max(0,a.length-1),StandardCharsets.US_ASCII);}b.write(c);p=c;}return b.size()==0?null:b.toString(StandardCharsets.US_ASCII);}
+    private static void write(OutputStream out,String value)throws IOException{out.write(value.getBytes(StandardCharsets.US_ASCII));out.flush();}
+    private static void writeJson(OutputStream out,String value)throws IOException{byte[] data=value.getBytes(StandardCharsets.UTF_8);write(out,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "+data.length+"\r\nConnection: close\r\n\r\n");out.write(data);out.flush();}
+    @Override public void close(){if(!closed.compareAndSet(false,true))return;try{server.close();}catch(IOException ignored){}workers.shutdownNow();try{acceptor.join(1000);}catch(InterruptedException e){Thread.currentThread().interrupt();}}
+}

@@ -1,0 +1,50 @@
+XingChen Community Source-Available License, Version 1.0
+Copyright (c) 2026 anwaning and the respective XingChen contributors.
+
+1. Scope
+This license applies only to original XingChen material for which the copyright
+holder has authority to grant this license. Third-party components, notices and
+licenses are excluded and remain governed by their own licenses. This license
+does not restrict rights separately granted by those third parties.
+
+2. Non-commercial permission
+Subject to the conditions below, you may inspect, learn from, copy, run and modify
+the covered material for personal, educational and other non-commercial purposes.
+You may redistribute it, including permitted modifications, without charging a
+fee, provided recipients receive this license and the existing copyright,
+attribution and third-party notices. Identify your modifications and do not
+represent them as an official XingChen release. This license must accompany the
+covered material; it does not relicense independently licensed dependencies.
+
+3. Commercial authorization required
+No commercial rights are granted without prior written authorization from the
+applicable copyright holder. Commercial use includes commercial or paid
+deployment, internal operation for a business, commercial hosting or integration,
+SaaS, resale, paid support based on this software, sale of modified versions, and
+incorporation into a commercial service. A use intended for commercial advantage,
+monetary compensation or business operations requires authorization even if the
+software itself is supplied without a separate charge. Contact the project
+maintainer through the official repository for authorization; an unanswered
+request is not authorization.
+
+4. Conditions and reserved rights
+Preserve this license and all applicable copyright and attribution notices.
+Do not sublicense the covered material under terms that evade these restrictions.
+No trademark rights or endorsement are granted. Rights not expressly granted are
+reserved. This is a source-available, non-commercial license, not an OSI-approved
+open-source license. Your permission under this license terminates if you breach
+its conditions; this does not terminate independent third-party license rights.
+
+5. Disclaimer
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE MATERIAL IS PROVIDED "AS IS",
+WITHOUT WARRANTIES OF ANY KIND, INCLUDING MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NON-INFRINGEMENT. THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ARE NOT LIABLE FOR CLAIMS, DAMAGES OR OTHER LIABILITY ARISING FROM USE OF THE
+MATERIAL. NOTHING HERE EXCLUDES LIABILITY THAT CANNOT LAWFULLY BE EXCLUDED.
+
+6. Contributions
+Do not submit material you cannot lawfully license. A contributor retains their
+copyright. Contributions intended for inclusion must be licensed under these
+terms or under separately documented compatible terms accepted by the maintainer.
+Any broader commercial authorization for third-party contributions must come
+from their copyright holders or an expressly authorized representative.

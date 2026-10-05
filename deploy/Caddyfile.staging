@@ -1,0 +1,17 @@
+{
+    admin off
+    auto_https disable_redirects
+}
+https://localhost:13220 {
+    tls internal
+    reverse_proxy xingchen-c4c2-core:3200 {
+        header_up -Forwarded
+        header_up -X-Forwarded-For
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Host localhost:13220
+        header_up Host localhost:13220
+    }
+}
+http://localhost:13221 {
+    redir https://localhost:13220{uri} 308
+}
