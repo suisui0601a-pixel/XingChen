@@ -52,12 +52,14 @@ class SocialRuntimeFinalEvidenceE2ETest {
 
             UUID speakerConversation=identities.identifyConversation(new ConversationIdentity(Platform.QQ,ConversationType.GROUP,"group-speaker")).id();
             simulation.configure(speakerConversation,Map.of("speakers",List.of("speaker-x")),true);simulation.sleep(speakerConversation,null,true);
+            provider.enqueue(reply("configured-speaker response"));
             fake.emit(group("speaker-x-event","group-speaker","speaker-x","Same nickname","",30,"{\"type\":\"text\",\"data\":{\"text\":\"ordinary message\"}}"));
-            await(()->completed(jdbc,"speaker-x-event"),5000);assertThat(simulation.get(speakerConversation).wakeState()).isEqualTo(SimulationConversationState.WakeState.AWAKE);
+            await(()->provider.requests().size()==4&&completed(jdbc,"speaker-x-event"),8000);assertThat(simulation.get(speakerConversation).wakeState()).isEqualTo(SimulationConversationState.WakeState.AWAKE);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM onebot_outbound_executions WHERE conversation_id=? AND status='SUCCESS'",Integer.class,speakerConversation.toString())).isEqualTo(1);
             simulation.sleep(speakerConversation,null,true);
             fake.emit(group("speaker-y-event","group-speaker","speaker-y","speaker-x","",31,"{\"type\":\"text\",\"data\":{\"text\":\"ordinary message\"}}"));
             await(()->completed(jdbc,"speaker-y-event"),5000);assertThat(simulation.get(speakerConversation).wakeState()).isEqualTo(SimulationConversationState.WakeState.SLEEPING);
-            assertThat(provider.requests()).hasSize(3);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM durable_turn_executions WHERE incoming_event_id IN ('speaker-x-event','speaker-y-event') AND model_turn_state='NOT_STARTED'",Integer.class)).isEqualTo(2);
+            assertThat(provider.requests()).hasSize(4);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM durable_turn_executions WHERE incoming_event_id IN ('speaker-x-event','speaker-y-event') AND model_turn_state='NOT_STARTED'",Integer.class)).isEqualTo(1);
         }finally{TestSqliteDatabase.clean(db);}
     }
 
