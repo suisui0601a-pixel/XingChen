@@ -18,8 +18,10 @@ XingChen is a Java 21 application for building a social AI runtime around durabl
 | Core runtime, persistence, and protected Admin Console | Implemented; automated tests available |
 | Identity, relationships, and scoped memory | Implemented |
 | Agent tools and capability policy | Implemented |
-| DeepSeek provider and OneBot v11 integration | Implemented |
-| QQ production message/tool round-trip | Operator-confirmed after deployment on 2026-10-05; see [production record](docs/PHASE5_PRODUCTION_GO_LIVE.md) |
+| DeepSeek provider and OneBot v11 integration | Implemented; HTTP and WebSocket credentials are independent |
+| Wake/access behavior and isolated runtime acceptance | Implemented; automated isolated acceptance available |
+| SocialRuntime without DSH | Implemented; DSH is an independent integration |
+| Native OneBot production cutover | Pending controlled deployment; no current production cutover is claimed |
 | Voice features | In progress / not generally available |
 | General public release | In progress |
 
@@ -54,6 +56,7 @@ remote-bind guard.
 - Private and group conversation handling through the OneBot v11 boundary.
 - Durable, serialized turn processing with replay/deduplication and restart-aware state.
 - Explicit wake and access policies rather than implicit unrestricted tool access.
+- Wake evaluation applies access control before invalid/self/system filtering and explicit, contextual, then ordinary-random triggers. Random probability affects only eligible ordinary messages.
 
 ### Identity and memory
 
@@ -71,6 +74,7 @@ remote-bind guard.
 
 - Protected bilingual Web Console for runtime, identity, prompts, models, OneBot, access, usage, and operations.
 - SecretStore-backed provider and gateway credentials.
+- Separate OneBot HTTP and forward-WebSocket credentials, independently saved and cleared without echoing token values.
 - Container deployment with non-root runtime, read-only root filesystem, and persistent data volume.
 
 ## Quick start

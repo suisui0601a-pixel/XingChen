@@ -14,12 +14,14 @@ documentation; dated phase and audit reports are retained as historical records.
 - [Identity model](IDENTITY_MODEL.md)
 - [Memory model](MEMORY_MODEL.md)
 - [Social runtime](SOCIAL_RUNTIME.md)
+- [Wake evaluation and acceptance behavior](AGENT_RUNTIME.md#wake-and-reserved2)
 
 ## Runtime and integrations
 
 - [Model provider](MODEL_PROVIDER.md)
 - [DeepSeek tool-name mapping](DEEPSEEK_TOOL_NAME_MAPPING.md)
 - [OneBot v11 adapter](ONEBOT_ADAPTER.md)
+- [Independent OneBot HTTP / WebSocket credentials](ONEBOT_HTTP_WS_TOKEN_SEPARATION.md)
 - [SnowLuma Gateway contract](SNOWLUMA_GATEWAY_CONTRACT.md)
 - [Stickers and slang](STICKERS_AND_SLANG.md)
 - [Data layout](DATA_LAYOUT.md)

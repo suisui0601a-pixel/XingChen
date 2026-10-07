@@ -128,7 +128,7 @@ A programmatic scan of the current numeric matrix rows found 73 explicitly class
 
 Observed Vite production output: JS 527.99 kB / gzip 160.06 kB; CSS 28.32 kB / gzip 6.38 kB. The >500 kB warning is retained, not hidden with a larger warning threshold or dependency upgrade. Route-based splitting may be evaluated later; no high-risk bundle refactor was made in this closure.
 
-All work is local in `D:\XingChen`. Production DSH, Bridge, SnowLuma, NapCat, QQ login, secrets, Docker, DNS, SSH and Zetu are untouched.
+All work in this phase was local to its development checkout. Production services, account sessions, secrets, networking, and external gateways were outside the phase scope.
 
 ## Verified Phase 4B baseline history
 

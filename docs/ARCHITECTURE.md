@@ -58,6 +58,12 @@ Phase 4B-1 establishes the authenticated single-JAR Console shell, session/CSRF 
 
 Phase 4B-3a adds the authenticated `PeopleMemoryConsoleService` read/write facade and management routes for stable People identity/history, explicit relationship terms, and admin memory. Relationship mutation uses scope validation, optimistic concurrency, deactivation audit, and the runtime's authoritative address priority for effective previews. Memory administration applies bounded, parameterized filters (including UTC `[from,to)` time bounds), no-store detail, provenance, scope-expansion confirmation, and soft forget. Retrieval preview delegates to the existing `MemoryRetriever`, `RequestContext`, and `MemoryVisibility` path; admin FTS search remains a separate cross-person surface and is not exposed as Agent retrieval. Reset tests verify long-term People/relationship/memory persistence. Both `zh-CN` and `en-US` labels and a 375px drawer/logout workflow are covered by fake-profile browser tests.
 
+## Current runtime integration gates
+
+The ordinary QQ social path is `Social enabled AND OneBot enabled AND Model enabled`. DSH is not a prerequisite for `SocialRuntime`; its interaction integration is controlled independently and remains off when DSH is disabled. This is a runtime capability statement, not a claim that a particular production deployment has completed its OneBot cutover. Startup logs report the four integration switches separately and state whether `SocialRuntime` started or which required dependency is disabled.
+
+For Docker deployments, Core reaches an independently operated OneBot gateway through its service DNS name, not `127.0.0.1` (which refers to Core itself). See [OneBot adapter](ONEBOT_ADAPTER.md) and [Deployment](DEPLOYMENT.md) for the transport and network boundary.
+
 ## Quality and security invariants
 
 - Never identify a person by nickname/card.

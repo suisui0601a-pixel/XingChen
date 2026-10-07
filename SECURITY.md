@@ -23,6 +23,9 @@ expected behavior and impact. Never test against another person's deployment.
   management, OneBot and noVNC ports must not be public.
 - Provider and Gateway secrets are entered through the protected Console and
   stored using the existing SecretStore. Never attach production secrets to CI.
+- OneBot HTTP and forward-WebSocket credentials are independent SecretStore
+  entries. Token APIs return only configured status; do not create a second live
+  WebSocket subscription just to test its state.
 - Offline recovery bundles include sensitive application state. Protect them and
   keep an off-host copy. A checksum is integrity evidence, not encryption.
 
