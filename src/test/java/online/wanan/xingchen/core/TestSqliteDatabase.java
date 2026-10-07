@@ -18,14 +18,20 @@ public final class TestSqliteDatabase {
     public static void clean(JdbcTemplate jdbc,Path db){
         try{
             if(jdbc!=null&&jdbc.getDataSource() instanceof HikariDataSource pool)pool.close();
-            Path absolute=db.toAbsolutePath();
-            deleteWithRetry(Path.of(absolute+"-wal"));deleteWithRetry(Path.of(absolute+"-shm"));deleteWithRetry(absolute);
-            Path directory=absolute.getParent();if(directory!=null)Files.deleteIfExists(directory);
+            deleteOwnedDirectory(db);
         }catch(IOException e){throw new IllegalStateException("could not clean isolated SQLite test database",e);}
     }
     public static void clean(Path db){
-        try{Path absolute=db.toAbsolutePath();deleteWithRetry(Path.of(absolute+"-wal"));deleteWithRetry(Path.of(absolute+"-shm"));deleteWithRetry(absolute);Path directory=absolute.getParent();if(directory!=null)Files.deleteIfExists(directory);}
+        try{deleteOwnedDirectory(db);}
         catch(IOException e){throw new IllegalStateException("could not clean isolated SQLite test database",e);}
+    }
+    private static void deleteOwnedDirectory(Path db)throws IOException{
+        Path build=Path.of("build").toAbsolutePath().normalize();Path absolute=db.toAbsolutePath().normalize();Path directory=absolute.getParent();
+        if(directory==null||!absolute.startsWith(build)||!absolute.getFileName().toString().equals("test.sqlite")||!build.equals(directory.getParent())||!directory.getFileName().toString().startsWith("xingchen-"))
+            throw new IllegalStateException("refusing to clean an unowned isolated SQLite test directory");
+        try(var paths=Files.walk(directory)){
+            for(Path path:paths.sorted(java.util.Comparator.reverseOrder()).toList())deleteWithRetry(path);
+        }
     }
     private static void deleteWithRetry(Path path)throws IOException{
         IOException last=null;
