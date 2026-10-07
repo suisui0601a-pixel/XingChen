@@ -469,7 +469,7 @@ test('social settings overrides and fake model management are secret-safe, persi
   await probability.fill('0.35')
   await page.getByRole('button', { name: '保存全局设置' }).click()
   await expect(page.getByRole('status')).toContainText('设置已保存')
-  const mentionRow = page.locator('.social-override-row').filter({ hasText: '被提及时唤醒' })
+  const mentionRow = page.locator('.social-override-row').filter({ hasText: '被 @ 时回复' })
   await mentionRow.getByRole('combobox').selectOption('false')
   await page.getByRole('button', { name: '保存会话覆盖' }).click()
   await expect(mentionRow).toContainText('生效值: 否')
