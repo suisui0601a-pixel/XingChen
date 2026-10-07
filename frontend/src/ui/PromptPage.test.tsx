@@ -26,7 +26,7 @@ describe('immutable prompt baseline page',()=>{
     replies();render(<PromptPage layer="SIMULATION" language="en-US"/>);
     expect(await screen.findByRole('heading',{name:'Simulation',level:1})).toBeInTheDocument()
     expect(screen.getByText('Built into Core')).toBeInTheDocument();expect(screen.getByText(simulation.sha256)).toBeInTheDocument()
-    expect(screen.getByText('Current Simulation')).toBeInTheDocument();expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.getByText('Synthetic CI simulation rules.')).toBeInTheDocument();expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
   it('displays the prompt order and read-only Hard Security Policy',async()=>{
