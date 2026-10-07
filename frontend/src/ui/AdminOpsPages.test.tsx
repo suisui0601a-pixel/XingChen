@@ -58,6 +58,18 @@ describe('safe operational console states',()=>{
   expect(screen.getByLabelText(/QQ 用户号（用户 ID）/)).toHaveAttribute('placeholder','例如：123456789')
   expect(screen.getByRole('heading',{name:'所有者（恢复配置）'})).toBeInTheDocument()
  })
+ it('requires a second confirmation before removing every access rule',async()=>{
+  vi.mocked(api).mockResolvedValueOnce({revision:5,owner:{platform:'QQ'},rules:[{scope:'GROUP',platform:'QQ',stableId:'group-123',effect:'ALLOW'}]})
+  const confirm=vi.spyOn(window,'confirm').mockReturnValueOnce(true).mockReturnValueOnce(true).mockReturnValueOnce(false)
+  render(<AccessPage language="en-US"/>)
+  expect(await screen.findByText('Current rules: 1')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'Delete rule'}))
+  expect(await screen.findByText('Current rules: 0')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'Save access rules'}))
+  expect(confirm).toHaveBeenCalledTimes(3)
+  expect(api).toHaveBeenCalledTimes(1)
+  expect(api).toHaveBeenCalledWith('/api/access/policy')
+ })
  it('Password mismatch is associated with fields and never submitted',async()=>{
   vi.mocked(api).mockResolvedValueOnce({passwordConfigured:true})
   render(<SecurityPage language="en-US"/>)
