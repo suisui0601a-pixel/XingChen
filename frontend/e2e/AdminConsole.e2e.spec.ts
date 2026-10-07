@@ -486,7 +486,7 @@ test('social settings overrides and fake model management are secret-safe, persi
   await expect(page.getByRole('status')).toContainText('已在其他位置修改')
   await page.unrouteAll()
   await page.getByRole('button', { name: '清除全部覆盖' }).click()
-  await expect(page.locator('.social-override-row').filter({ hasText: '被提及时唤醒' })).toContainText('生效值: 是')
+  await expect(page.locator('.social-override-row').filter({ hasText: '被 @ 时回复' })).toContainText('生效值: 是')
   effective = await page.request.get(`/api/social-settings/conversations/${conversation}`)
   expect((await effective.json()).overrides).toEqual({})
   await page.reload()
