@@ -32,6 +32,17 @@ documentation; dated phase and audit reports are retained as historical records.
 - [Admin initialization](ADMIN_INITIALIZATION.md)
 - [Backup and restore](BACKUP_RESTORE.md)
 - [Deployment target](DEPLOYMENT_TARGET.md)
+- [Bilingual agent deployment](AGENT_DEPLOYMENT_BILINGUAL.md)
+- [Admin credentials](ADMIN_CREDENTIALS.md)
+- [FAQ](FAQ.md)
+- [Sticker bulk import](STICKER_BULK_IMPORT.md)
+
+## Sanitized operational reports
+
+- [Concurrency validation](reports/2026-10-08_CONCURRENCY_VALIDATION.md)
+- [Native OneBot cutover](reports/2026-10-08_NATIVE_ONEBOT_CUTOVER.md)
+- [Access control production report](reports/2026-10-08_ACCESS_CONTROL_PRODUCTION.md)
+- [Sticker import report](reports/2026-10-08_STICKER_IMPORT.md)
 
 ## Security
 

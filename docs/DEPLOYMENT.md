@@ -23,6 +23,12 @@ Use a persistent local Docker volume for application data. Keep the database and
 
 Admin credentials and provider/OneBot credentials are runtime configuration. Enter credentials through the authenticated Console or a supported secret mechanism; never commit them, put them in image layers, or print them into logs or command history. OneBot HTTP and WebSocket credentials are separate; see [OneBot adapter](ONEBOT_ADAPTER.md).
 
+There is no public default administrator password. Bootstrap credentials are accepted only while the administrator credential store is empty; initialize through the protected Console flow and store the new password in an approved password manager. Passwords are stored as BCrypt hashes. See [Admin credentials](ADMIN_CREDENTIALS.md) for recovery boundaries and safe rotation guidance.
+
+Access is checked before wake evaluation. A `GROUP` allow rule matches the group/conversation ID, not the sender's QQ ID. Saving the rule list replaces the complete list; removing every rule returns ordinary users and groups to Default Deny. Review the displayed rule count and confirmation before applying a full-list change.
+
+When running the application as UID 10001, a Docker-managed volume's host-side parent may not be traversable by a temporary recovery container. Do not solve this by recursively changing ownership or permissions on Docker storage. Use the reviewed temporary bind-mount recovery helper described in [Backup and restore](BACKUP_RESTORE.md), and verify the backup before relying on it.
+
 ## OneBot network connection
 
 OneBot integrations are opt-in. For normal SocialRuntime processing, the effective switches are Social + OneBot + Model. DSH is an independent integration, not a prerequisite for ordinary social messages. A DSH-free configuration can therefore use:
@@ -46,6 +52,8 @@ WS:   ws://gateway-service:3001/
 Inside a container, `127.0.0.1` refers to that container itself; it does not refer to another service. Do not publish OneBot HTTP/WS ports to the public host. The adapter rejects non-loopback endpoints by default; enabling a separately reviewed service-DNS endpoint requires the explicit non-loopback opt-in. Keep the gateway isolated from public ingress and publish only its required local administration interface on host loopback.
 
 The Core uses the HTTP credential only for HTTP actions and the WS credential only for its forward-WebSocket subscription. HTTP connection testing uses read-only `get_login_info`; WS status reports the existing subscription and must not create a second production consumer. Status APIs never return token values.
+
+For authenticated sticker uploads, use the Console's supported upload API and retain the returned hash and metadata for verification. Do not copy files directly into the managed library or insert rows into SQLite. See [Sticker bulk import](STICKER_BULK_IMPORT.md).
 
 ## Upgrade and rollback
 

@@ -21,7 +21,7 @@ XingChen is a Java 21 application for building a social AI runtime around durabl
 | DeepSeek provider and OneBot v11 integration | Implemented; HTTP and WebSocket credentials are independent |
 | Wake/access behavior and isolated runtime acceptance | Implemented; automated isolated acceptance available |
 | SocialRuntime without DSH | Implemented; DSH is an independent integration |
-| Native OneBot production cutover | Pending controlled deployment; no current production cutover is claimed |
+| Native OneBot production cutover | Validated in a controlled deployment; deployment-specific identities, secrets, and private prompt data remain unpublished |
 | Voice features | In progress / not generally available |
 | General public release | In progress |
 
@@ -95,7 +95,8 @@ test key. Normal tests use fixtures and do not call a provider.
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) · [Agent Runtime](docs/AGENT_RUNTIME.md) · [Memory Model](docs/MEMORY_MODEL.md)
-- [Deployment](docs/DEPLOYMENT.md) · [Admin Initialization](docs/ADMIN_INITIALIZATION.md) · [Backup & Restore](docs/BACKUP_RESTORE.md)
+- [Deployment](docs/DEPLOYMENT.md) · [Bilingual agent deployment](docs/AGENT_DEPLOYMENT_BILINGUAL.md) · [Admin Initialization](docs/ADMIN_INITIALIZATION.md) · [Admin credentials](docs/ADMIN_CREDENTIALS.md)
+- [FAQ](docs/FAQ.md) · [Backup & Restore](docs/BACKUP_RESTORE.md) · [Sticker bulk import](docs/STICKER_BULK_IMPORT.md) · [Sanitized operations reports](docs/reports/README.md)
 - [Model Provider](docs/MODEL_PROVIDER.md) · [OneBot Adapter](docs/ONEBOT_ADAPTER.md) · [SnowLuma Gateway Contract](docs/SNOWLUMA_GATEWAY_CONTRACT.md)
 - [Security](SECURITY.md) · [All documentation and historical reports](docs/README.md)
 
