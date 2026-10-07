@@ -14,8 +14,8 @@ public final class OneBotConfigurationApplier {
         this.gateway=concrete;this.config=config;this.properties=properties;this.switches=switches;this.allowNonLoopback=allowNonLoopback;
     }
     public synchronized void apply(){
-        var next=new OneBotV11Configuration(URI.create(config.gatewayEndpoint("httpUrl",properties.onebot().httpUrl())),URI.create(config.gatewayEndpoint("wsUrl",properties.onebot().wsUrl())),"XINGCHEN_ONEBOT_ACCESS_TOKEN",properties.onebot().loginUserId(),allowNonLoopback,5000,10000,1000,30000,1000,90000);
-        var credentials=java.util.Map.of("XINGCHEN_ONEBOT_ACCESS_TOKEN",config.gatewayToken());
+        var next=new OneBotV11Configuration(URI.create(config.gatewayEndpoint("httpUrl",properties.onebot().httpUrl())),URI.create(config.gatewayEndpoint("wsUrl",properties.onebot().wsUrl())),"XINGCHEN_ONEBOT_HTTP_ACCESS_TOKEN","XINGCHEN_ONEBOT_WS_ACCESS_TOKEN",properties.onebot().loginUserId(),allowNonLoopback,5000,10000,1000,30000,1000,90000);
+        var credentials=java.util.Map.of("XINGCHEN_ONEBOT_HTTP_ACCESS_TOKEN",config.gatewayToken(online.wanan.xingchen.console.GatewaySecretStore.Transport.HTTP),"XINGCHEN_ONEBOT_WS_ACCESS_TOKEN",config.gatewayToken(online.wanan.xingchen.console.GatewaySecretStore.Transport.WS));
         gateway.reconfigure(next,credentials,()->config.gatewayEnabled(switches.oneBotEnabled()));
     }
 }

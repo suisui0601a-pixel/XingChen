@@ -1,38 +1,77 @@
 package online.wanan.xingchen.console;
 
-import org.springframework.stereotype.Component;
-import java.io.IOException;
-import java.nio.file.*;
 import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Autowired;
 import online.wanan.xingchen.storage.DataPathResolver;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Optional;
 
-/** Gateway facade over the shared store; migrate the legacy filename before environment bootstrap. */
+/** Independent OneBot transport credentials with an explicit, read-only legacy fallback. */
 @Component
 public final class GatewaySecretStore {
-    private static final String NAME = "onebot-access-token";
+    public enum Transport {
+        HTTP("onebot-http-access-token", "XINGCHEN_ONEBOT_HTTP_ACCESS_TOKEN"),
+        WS("onebot-ws-access-token", "XINGCHEN_ONEBOT_WS_ACCESS_TOKEN");
+
+        private final String secretName;
+        private final String environmentVariable;
+        Transport(String secretName, String environmentVariable) {
+            this.secretName = secretName;
+            this.environmentVariable = environmentVariable;
+        }
+    }
+
+    private static final String LEGACY_NAME = "onebot-access-token";
     private final SecretStore secrets;
-    private final Path legacy;
+    private final Path legacyFile;
+
     @Autowired public GatewaySecretStore(SecretStore secrets, DataPathResolver paths) {
+        this(secrets, paths.config());
+    }
+
+    GatewaySecretStore(SecretStore secrets, String root) {
+        this(secrets, Path.of(root).toAbsolutePath().normalize());
+    }
+
+    private GatewaySecretStore(SecretStore secrets, Path root) {
         this.secrets = secrets;
-        this.legacy = paths.config().resolve(NAME);
+        this.legacyFile = root.resolve(LEGACY_NAME);
     }
-    GatewaySecretStore(SecretStore secrets, String root) { this.secrets=secrets;this.legacy=Path.of(root).toAbsolutePath().normalize().resolve(NAME); }
+
+    /** Bootstrap without copying a shared legacy credential over either transport-specific file. */
     @PostConstruct public synchronized void bootstrap() {
-        if (!secrets.initialized(NAME) && Files.exists(legacy)) {
-            try { secrets.replace(NAME, Files.readString(legacy)); }
-            catch (IOException exception) { throw new IllegalStateException("Existing Gateway credential could not be migrated"); }
+        if (!secrets.initialized(LEGACY_NAME) && Files.isRegularFile(legacyFile)) {
+            try { secrets.replace(LEGACY_NAME, Files.readString(legacyFile)); }
+            catch (IOException exception) { throw new IllegalStateException("Existing Gateway credential could not be read safely"); }
         }
-        if (secrets.initialized(NAME)) {
-            try { Files.deleteIfExists(legacy); }
-            catch (IOException exception) { throw new IllegalStateException("Existing Gateway credential could not be retired"); }
+        // Keep both historical environment aliases as a single shared fallback; never fan them out.
+        secrets.bootstrapEnvironment(LEGACY_NAME, "XINGCHEN_ONEBOT_ACCESS_TOKEN");
+        secrets.bootstrapEnvironment(LEGACY_NAME, "ONEBOT_ACCESS_TOKEN");
+        for (Transport transport : Transport.values()) {
+            secrets.bootstrapEnvironment(transport.secretName, transport.environmentVariable);
         }
-        secrets.bootstrapEnvironment(NAME, "XINGCHEN_ONEBOT_ACCESS_TOKEN");
-        secrets.bootstrapEnvironment(NAME, "ONEBOT_ACCESS_TOKEN");
     }
-    public Optional<String> read() { return secrets.read(NAME); }
-    public boolean configured() { return secrets.configured(NAME); }
-    public void replace(String value) { secrets.replace(NAME, value); }
-    public void clear() { secrets.clear(NAME); }
+
+    public Optional<String> read(Transport transport) {
+        if (secrets.initialized(transport.secretName)) return secrets.read(transport.secretName);
+        return secrets.read(LEGACY_NAME);
+    }
+
+    public boolean configured(Transport transport) {
+        return read(transport).filter(value -> !value.isBlank()).isPresent();
+    }
+
+    public boolean transportInitialized(Transport transport) {
+        return secrets.initialized(transport.secretName);
+    }
+
+    public boolean legacyConfigured() { return secrets.configured(LEGACY_NAME); }
+
+    public void replace(Transport transport, String value) { secrets.replace(transport.secretName, value); }
+
+    public void clear(Transport transport) { secrets.clear(transport.secretName); }
 }

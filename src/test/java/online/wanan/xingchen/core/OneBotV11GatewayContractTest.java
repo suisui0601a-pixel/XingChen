@@ -10,6 +10,16 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static org.assertj.core.api.Assertions.*;
 
 class OneBotV11GatewayContractTest {
+    @Test void ob115_httpAndWebSocketUseIndependentCredentials() throws Exception {
+        try(var f=new FakeOneBotServer("http-secret","ws-secret");var g=new OneBotV11Gateway(
+                new OneBotV11Configuration(f.httpUri(),f.wsUri(),"HTTP_TOKEN","WS_TOKEN","bot",false,1000,1500,50,200,20,90_000),
+                new ObjectMapper(),new OneBotEventNormalizer(new ObjectMapper()),Map.of("HTTP_TOKEN","http-secret","WS_TOKEN","ws-secret"))) {
+            assertThat(g.connect().connected()).isTrue();await(()->f.wsConnections()==1);
+            assertThat(f.lastWsAuthorization()).isEqualTo("Bearer ws-secret");
+            assertThat(g.getLoginInfo()).isPresent();
+            assertThat(f.lastHttpAuthorization()).isEqualTo("Bearer http-secret");
+        }
+    }
     @Test void ob112_loginInfoReadsOnlyDocumentedOneBotAccountIdentity() throws Exception{try(var f=new FakeOneBotServer("secret");var g=new OneBotV11Gateway(new OneBotV11Configuration(f.httpUri(),f.wsUri(),"TOKEN","bot",false,1000,1500,50,200,20),new ObjectMapper(),new OneBotEventNormalizer(new ObjectMapper()),Map.of("TOKEN","secret"))){assertThat(g.connect().connected()).isTrue();var account=g.getLoginInfo().orElseThrow();assertThat(account.userId()).isEqualTo("123456789");assertThat(account.nickname()).isEqualTo("Fake Bot");assertThat(f.actionCount("get_login_info")).isEqualTo(1);}}
     @Test void ob113_configChangesReconnectTheSameTransportWithoutRestartingTheJvm() throws Exception{try(var first=new FakeOneBotServer("one");var second=new FakeOneBotServer("two");var g=new OneBotV11Gateway(config(first,false,"TOKEN"),new ObjectMapper(),new OneBotEventNormalizer(new ObjectMapper()),Map.of("TOKEN","one"))){assertThat(g.connect().connected()).isTrue();await(()->first.wsConnections()>0);var next=new OneBotV11Configuration(second.httpUri(),second.wsUri(),"TOKEN","bot",false,1000,1500,50,200,20);assertThat(g.reconfigure(next,Map.of("TOKEN","two"),()->true).connected()).isTrue();await(()->second.wsConnections()>0);assertThat(g.getLoginInfo()).get().extracting("userId").isEqualTo("123456789");assertThat(second.actionCount("get_login_info")).isEqualTo(1);assertThat(first.wsConnections()).isEqualTo(1);}}
     private OneBotV11Configuration config(FakeOneBotServer f,boolean allow,String envName){return new OneBotV11Configuration(f.httpUri(),f.wsUri(),envName,"bot",allow,1000,1500,50,200,20);}
