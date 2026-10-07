@@ -32,14 +32,19 @@ public class ConfigService {
         jdbc.query("SELECT config_key,value_json FROM console_configuration WHERE category='Gateway' ORDER BY config_key",rs->{try{values.put(rs.getString(1),json.readValue(rs.getString(2),Object.class));}catch(Exception e){throw new IllegalStateException("Stored Gateway configuration is invalid");}});
         values.putIfAbsent("httpUrl",environment.getProperty("xingchen.onebot.http-url","http://127.0.0.1:3000"));
         values.putIfAbsent("wsUrl",environment.getProperty("xingchen.onebot.ws-url","ws://127.0.0.1:3001"));
-        values.put("tokenConfigured",gatewaySecrets.configured());
+        values.put("httpTokenConfigured",gatewaySecrets.configured(GatewaySecretStore.Transport.HTTP));
+        values.put("wsTokenConfigured",gatewaySecrets.configured(GatewaySecretStore.Transport.WS));
+        values.put("httpTokenExplicit",gatewaySecrets.transportInitialized(GatewaySecretStore.Transport.HTTP));
+        values.put("wsTokenExplicit",gatewaySecrets.transportInitialized(GatewaySecretStore.Transport.WS));
+        values.put("legacyTokenConfigured",gatewaySecrets.legacyConfigured());
         values.putIfAbsent("enabled",environment.getProperty("xingchen.integrations.onebot-enabled",Boolean.class,false));
         return Map.copyOf(values);
     }
     public boolean gatewayEnabled(boolean fallback){Object value=storedGatewayValue("enabled");return value instanceof Boolean b?b:fallback;}
     public String gatewayEndpoint(String key,String fallback){Object value=storedGatewayValue(key);return value instanceof String s?s:fallback;}
-    public String gatewayToken(){return gatewaySecrets.read().orElse("");}
-    @Transactional public Map<String,Object> updateGatewaySecret(String action,String token,String actor){if(action==null||!Set.of("set","replace","clear").contains(action))throw new IllegalArgumentException("Unsupported secret action");if(action.equals("clear"))gatewaySecrets.clear();else gatewaySecrets.replace(token);String now=Instant.now().toString();jdbc.update("INSERT INTO console_configuration_audit(occurred_at,actor,category,config_key,action) VALUES(?,?,?,?,?)",now,actor,"Gateway","accessToken",action.equals("clear")?"CLEAR":"REPLACE");return Map.of("configured",!action.equals("clear"),"applyMode",ApplyMode.HOT_APPLY.name());}
+    public String gatewayToken(GatewaySecretStore.Transport transport){return gatewaySecrets.read(transport).orElse("");}
+    @Transactional public Map<String,Object> updateGatewaySecret(String transportName,String action,String token,String actor){GatewaySecretStore.Transport transport=parseTransport(transportName);if(action==null||!Set.of("set","replace","clear").contains(action))throw new IllegalArgumentException("Unsupported secret action");if(action.equals("clear"))gatewaySecrets.clear(transport);else gatewaySecrets.replace(transport,token);String now=Instant.now().toString();String key=transport==GatewaySecretStore.Transport.HTTP?"httpAccessToken":"wsAccessToken";jdbc.update("INSERT INTO console_configuration_audit(occurred_at,actor,category,config_key,action) VALUES(?,?,?,?,?)",now,actor,"Gateway",key,action.equals("clear")?"CLEAR":"REPLACE");return Map.of("configured",!action.equals("clear"),"transport",transport.name().toLowerCase(Locale.ROOT),"applyMode",ApplyMode.HOT_APPLY.name());}
+    private GatewaySecretStore.Transport parseTransport(String value){if("http".equals(value))return GatewaySecretStore.Transport.HTTP;if("ws".equals(value))return GatewaySecretStore.Transport.WS;throw new IllegalArgumentException("Transport must be http or ws");}
     private Object storedGatewayValue(String key){return jdbc.query("SELECT value_json FROM console_configuration WHERE category='Gateway' AND config_key=?",rs->{if(!rs.next())return null;try{return json.readValue(rs.getString(1),Object.class);}catch(Exception e){throw new IllegalStateException("Stored Gateway configuration is invalid");}},key);}
 
     public Map<String, Object> describe(String category) {
@@ -99,7 +104,8 @@ public class ConfigService {
 
     public Map<String, Boolean> secretStatus() {
         return Map.of("deepSeekApiKeyConfigured", secrets.configured("deepseek-api-key"),
-                "oneBotTokenConfigured", gatewaySecrets.configured(), "dshCredentialConfigured", secrets.configured("dsh-launch-token"));
+                "oneBotHttpTokenConfigured", gatewaySecrets.configured(GatewaySecretStore.Transport.HTTP),
+                "oneBotWsTokenConfigured", gatewaySecrets.configured(GatewaySecretStore.Transport.WS), "dshCredentialConfigured", secrets.configured("dsh-launch-token"));
     }
 
     private static void requireCategory(String category) { if (!CATEGORIES.contains(category)) throw new IllegalArgumentException("Unknown configuration category"); }

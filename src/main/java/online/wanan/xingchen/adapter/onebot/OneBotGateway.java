@@ -9,6 +9,8 @@ public interface OneBotGateway {
     GatewayStatus disconnect();
     GatewayStatus status();
     default java.util.Optional<OneBotAccountInfo> getLoginInfo() { return java.util.Optional.empty(); }
+    /** Read-only HTTP credential/route probe (get_login_info). */
+    default String probeHttpConnection() { return "UNAVAILABLE"; }
     SendReceipt sendPrivateMessage(String userId,String text);
     SendReceipt sendGroupMessage(String groupId,String text);
     SendReceipt replyMessage(String platformMessageId,String text);

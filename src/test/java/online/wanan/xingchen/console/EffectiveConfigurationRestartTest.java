@@ -84,20 +84,42 @@ class EffectiveConfigurationRestartTest {
                 assertThat(server.lastHttpAuthorization()).isEqualTo("Bearer fixture-old");
                 var mvc = mvc(context);
                 mvc.perform(post("/api/gateway/secret").with(user("audit-admin")).with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"replace\",\"token\":\"fixture-new\"}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"transport\":\"http\",\"action\":\"replace\",\"token\":\"fixture-new\"}"))
                         .andExpect(status().isOk()).andExpect(jsonPath("$.configured").value(true));
+                mvc.perform(post("/api/gateway/test/http").with(user("audit-admin")).with(csrf()))
+                        .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CONNECTED"));
                 assertThat(gateway.getLoginInfo()).isPresent();
                 assertThat(server.lastHttpAuthorization()).isEqualTo("Bearer fixture-new");
+                // The old shared token remains available only as the WS fallback; an HTTP-only write cannot alter it.
+                assertThat(context.getBean(ConfigService.class).gatewayToken(GatewaySecretStore.Transport.WS)).isEqualTo("fixture-old");
                 mvc.perform(post("/api/gateway/secret").with(user("audit-admin")).with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"clear\"}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"transport\":\"http\",\"action\":\"clear\"}"))
                         .andExpect(status().isOk()).andExpect(jsonPath("$.configured").value(false));
+                mvc.perform(post("/api/gateway/test/http").with(user("audit-admin")).with(csrf()))
+                        .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CONFIG_INCOMPLETE"));
                 assertThat(gateway.getLoginInfo()).isPresent();
                 assertThat(server.lastHttpAuthorization()).isNull();
+                mvc.perform(post("/api/gateway/secret").with(user("audit-admin")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"replace\",\"token\":\"fixture-ambiguous\"}"))
+                        .andExpect(status().isBadRequest());
+                mvc.perform(post("/api/gateway/secret").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"transport\":\"ws\",\"action\":\"replace\",\"token\":\"fixture-ws\"}"))
+                        .andExpect(status().isUnauthorized());
+                mvc.perform(post("/api/gateway/secret").with(user("audit-admin")).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"transport\":\"ws\",\"action\":\"replace\",\"token\":\"fixture-ws\"}"))
+                        .andExpect(status().isOk()).andExpect(jsonPath("$.transport").value("ws"));
+                assertThat(context.getBean(ConfigService.class).gatewayToken(GatewaySecretStore.Transport.HTTP)).isEmpty();
+                assertThat(context.getBean(ConfigService.class).gatewayToken(GatewaySecretStore.Transport.WS)).isEqualTo("fixture-ws");
+                String gatewayStatus=mvc.perform(get("/api/gateway/status").with(user("audit-admin"))).andExpect(status().isOk())
+                        .andExpect(jsonPath("$.config.httpTokenConfigured").value(false))
+                        .andExpect(jsonPath("$.config.wsTokenConfigured").value(true))
+                        .andReturn().getResponse().getContentAsString();
+                assertThat(gatewayStatus).doesNotContain("fixture-old","fixture-new","fixture-ws");
                 mvc.perform(post("/api/models/providers/deepseek/credential").with(user("audit-admin")).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"value\":\"fixture-provider\"}"))
                         .andExpect(status().isOk()).andExpect(jsonPath("$.configured").value(true));
                 String posture = mvc.perform(get("/api/security/posture").with(user("audit-admin")))
-                        .andExpect(jsonPath("$.secretStore.oneBotTokenConfigured").value(false))
+                        .andExpect(jsonPath("$.secretStore.oneBotHttpTokenConfigured").value(false))
                         .andExpect(jsonPath("$.secretStore.deepSeekApiKeyConfigured").value(true))
                         .andReturn().getResponse().getContentAsString();
                 assertThat(posture).doesNotContain("fixture-old", "fixture-new", "fixture-provider", "fixture-alias");
@@ -106,9 +128,10 @@ class EffectiveConfigurationRestartTest {
                 var gateway = context.getBean(OneBotGateway.class);
                 assertThat(gateway.getLoginInfo()).isPresent();
                 assertThat(server.lastHttpAuthorization()).isNull();
-                assertThat(context.getBean(ConfigService.class).gatewayToken()).isEmpty();
+                assertThat(context.getBean(ConfigService.class).gatewayToken(GatewaySecretStore.Transport.HTTP)).isEmpty();
+                assertThat(context.getBean(ConfigService.class).gatewayToken(GatewaySecretStore.Transport.WS)).isEqualTo("fixture-ws");
                 mvc(context).perform(post("/api/gateway/secret").with(user("audit-admin")).with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"replace\",\"token\":\"fixture-after-clear\"}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"transport\":\"http\",\"action\":\"replace\",\"token\":\"fixture-after-clear\"}"))
                         .andExpect(status().isOk());
                 assertThat(gateway.getLoginInfo()).isPresent();
                 assertThat(server.lastHttpAuthorization()).isEqualTo("Bearer fixture-after-clear");
@@ -124,15 +147,42 @@ class EffectiveConfigurationRestartTest {
         var store = new FileSecretStore(directory.toString(), environment);
         var gateway = new GatewaySecretStore(store, directory.toString());
         gateway.bootstrap();
-        assertThat(gateway.read()).contains("fixture-legacy");
-        assertThat(Files.exists(directory.resolve("onebot-access-token"))).isFalse();
+        assertThat(gateway.read(GatewaySecretStore.Transport.HTTP)).contains("fixture-legacy");
+        assertThat(gateway.read(GatewaySecretStore.Transport.WS)).contains("fixture-legacy");
+        assertThat(Files.exists(directory.resolve("onebot-access-token"))).isTrue();
         assertThat(Files.exists(directory.resolve("onebot-access-token.secret"))).isTrue();
-        gateway.clear();
+        gateway.replace(GatewaySecretStore.Transport.HTTP,"fixture-http-only");
+        assertThat(gateway.read(GatewaySecretStore.Transport.HTTP)).contains("fixture-http-only");
+        assertThat(gateway.read(GatewaySecretStore.Transport.WS)).contains("fixture-legacy");
+        gateway.clear(GatewaySecretStore.Transport.HTTP);
         new GatewaySecretStore(new FileSecretStore(directory.toString(), environment), directory.toString()).bootstrap();
-        assertThat(gateway.configured()).isFalse();
+        assertThat(gateway.configured(GatewaySecretStore.Transport.HTTP)).isFalse();
+        assertThat(gateway.configured(GatewaySecretStore.Transport.WS)).isTrue();
+        assertThat(Files.exists(directory.resolve("onebot-access-token"))).isTrue();
         store.replace("deepseek-api-key", "fixture-existing");
         var restarted = new FileSecretStore(directory.toString(), environment.withProperty("DEEPSEEK_API_KEY", "fixture-env-provider"));
         restarted.bootstrapEnvironment("deepseek-api-key", "DEEPSEEK_API_KEY");
         assertThat(restarted.read("deepseek-api-key")).contains("fixture-existing");
+    }
+
+    @Test void secretBoot006_existingIndependentTransportFilesAreNeverOverwrittenDuringBootstrap() throws Exception {
+        Path directory = root.resolve("existing-transport-secrets");
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve("onebot-http-access-token.secret"), "fixture-existing-http");
+        Files.writeString(directory.resolve("onebot-ws-access-token.secret"), "fixture-existing-ws");
+        var environment = new MockEnvironment()
+                .withProperty("XINGCHEN_ONEBOT_HTTP_ACCESS_TOKEN", "fixture-env-http")
+                .withProperty("XINGCHEN_ONEBOT_WS_ACCESS_TOKEN", "fixture-env-ws");
+        var store = new FileSecretStore(directory.toString(), environment);
+        var gateway = new GatewaySecretStore(store, directory.toString());
+
+        gateway.bootstrap();
+
+        assertThat(gateway.read(GatewaySecretStore.Transport.HTTP)).contains("fixture-existing-http");
+        assertThat(gateway.read(GatewaySecretStore.Transport.WS)).contains("fixture-existing-ws");
+        assertThat(Files.readString(directory.resolve("onebot-http-access-token.secret")))
+                .isEqualTo("fixture-existing-http");
+        assertThat(Files.readString(directory.resolve("onebot-ws-access-token.secret")))
+                .isEqualTo("fixture-existing-ws");
     }
 }

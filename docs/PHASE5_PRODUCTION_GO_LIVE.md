@@ -63,8 +63,8 @@ replace it with the assertion that an unchanged hash is a logged-in session.
 
 ## Backup and resources
 
-First offline format-1, schema-28 bundle:
-`/opt/xingchen-production/backups/public-switch-20261005T073927Z/bundle`.
+The operator created an offline format-1, schema-28 bundle before the switch.
+Its private path and contents are intentionally omitted from this public record.
 Unmodified recovery tooling backup and verify passed. A stopped-Core offline copy
 was used to satisfy strict owner checks without changing live-volume permissions.
 The temporary copy was removed after verification. Root-private backup is outside

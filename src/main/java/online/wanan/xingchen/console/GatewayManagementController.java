@@ -15,9 +15,10 @@ import java.util.Map;
 @RequestMapping("/api/gateway")
 public final class GatewayManagementController {
     private final GatewayManagementPort gateway;
+    private final online.wanan.xingchen.adapter.onebot.OneBotGateway oneBot;
     private final ConfigService config;
     private final org.springframework.beans.factory.ObjectProvider<online.wanan.xingchen.adapter.onebot.OneBotConfigurationApplier> gatewayApplier;
-    public GatewayManagementController(GatewayManagementPort gateway,ConfigService config,org.springframework.beans.factory.ObjectProvider<online.wanan.xingchen.adapter.onebot.OneBotConfigurationApplier> gatewayApplier){this.gateway=gateway;this.config=config;this.gatewayApplier=gatewayApplier;}
+    public GatewayManagementController(GatewayManagementPort gateway,online.wanan.xingchen.adapter.onebot.OneBotGateway oneBot,ConfigService config,org.springframework.beans.factory.ObjectProvider<online.wanan.xingchen.adapter.onebot.OneBotConfigurationApplier> gatewayApplier){this.gateway=gateway;this.oneBot=oneBot;this.config=config;this.gatewayApplier=gatewayApplier;}
     @GetMapping("/status") public ResponseEntity<Map<String,Object>> status(){
         var snapshot=gateway.getStatus();var values=new LinkedHashMap<String,Object>();
         values.put("state",snapshot.state());values.put("enabled",snapshot.enabled());values.put("transportConnected",snapshot.transportConnected());
@@ -30,7 +31,9 @@ public final class GatewayManagementController {
     @PostMapping("/logout") public ResponseEntity<GatewayManagementPort.OperationResult> logout(){return unsupported(gateway.logout());}
     @PostMapping("/reconnect") public ResponseEntity<GatewayManagementPort.OperationResult> reconnect(){return unsupported(gateway.reconnect());}
     @org.springframework.web.bind.annotation.PatchMapping("/config") public Map<String,Object> updateConfig(@org.springframework.web.bind.annotation.RequestBody Map<String,Object> updates,org.springframework.security.core.Authentication authentication){Map<String,Object> result=config.updateGatewaySettings(updates,authentication.getName());var applier=gatewayApplier.getIfAvailable();if(applier!=null)applier.apply();return result;}
-    @PostMapping("/secret") public Map<String,Object> secret(@org.springframework.web.bind.annotation.RequestBody SecretUpdate body,org.springframework.security.core.Authentication authentication){Map<String,Object> result=config.updateGatewaySecret(body.action(),body.token(),authentication.getName());var applier=gatewayApplier.getIfAvailable();if(applier!=null)applier.apply();return result;}
-    public record SecretUpdate(String action,String token){}
+    @PostMapping("/secret") public Map<String,Object> secret(@org.springframework.web.bind.annotation.RequestBody SecretUpdate body,org.springframework.security.core.Authentication authentication){if(body.transport()==null)throw new IllegalArgumentException("Transport must be explicitly selected");Map<String,Object> result=config.updateGatewaySecret(body.transport(),body.action(),body.token(),authentication.getName());var applier=gatewayApplier.getIfAvailable();if(applier!=null)applier.apply();return result;}
+    @PostMapping("/test/http") public Map<String,Object> testHttp(){var configStatus=config.gatewayConfiguration();String result=!Boolean.TRUE.equals(configStatus.get("enabled"))?"DISABLED":!Boolean.TRUE.equals(configStatus.get("httpTokenConfigured"))?"CONFIG_INCOMPLETE":oneBot.probeHttpConnection();return Map.of("status",result);}
+    @PostMapping("/test/ws") public Map<String,Object> testWs(){var snapshot=gateway.getStatus();var configStatus=config.gatewayConfiguration();String result=!Boolean.TRUE.equals(configStatus.get("enabled"))?"DISABLED":!Boolean.TRUE.equals(configStatus.get("wsTokenConfigured"))?"CONFIG_INCOMPLETE":snapshot.transportConnected()?"CONNECTED":"NOT_CONNECTED";return Map.of("status",result);}
+    public record SecretUpdate(String transport,String action,String token){}
     private ResponseEntity<GatewayManagementPort.OperationResult> unsupported(GatewayManagementPort.OperationResult result){return ResponseEntity.status(result.supported()?HttpStatus.OK:HttpStatus.NOT_IMPLEMENTED).cacheControl(CacheControl.noStore()).body(result);}
 }

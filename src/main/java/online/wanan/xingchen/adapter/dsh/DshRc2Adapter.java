@@ -27,6 +27,7 @@ public final class DshRc2Adapter implements DshSessionOperations,AutoCloseable {
         this.transport=new DshRc2Transport(configuration.baseUri(),http,mapper,auth,configuration.requestTimeout(),dispatcher);
         this.follow=new DshRc2FollowClient(http,mapper,auth,configuration.baseUri(),(int)configuration.requestTimeout().toMillis());
     }
+    @Override public boolean isEnabled(){return enabled.getAsBoolean();}
     @Override public String findOrCreateWorkspace(String existingDirectory){
         requireEnabled();
         Path path=Path.of(Objects.requireNonNull(existingDirectory)).toAbsolutePath().normalize();if(!Files.isDirectory(path))throw new IllegalArgumentException("DSH workspace path must already be a directory");

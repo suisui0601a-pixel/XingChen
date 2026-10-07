@@ -8,6 +8,7 @@ import online.wanan.xingchen.adapter.snowluma.SnowLumaGatewayAdapter;
 import online.wanan.xingchen.core.gateway.GatewayManagementPort;
 import online.wanan.xingchen.core.agent.*;
 import online.wanan.xingchen.security.XingChenProperties;
+import online.wanan.xingchen.console.GatewaySecretStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.*;
@@ -34,10 +35,10 @@ public class ProductionRuntimeConfiguration {
     @Bean public OneBotV11Configuration oneBotConfiguration(XingChenProperties p,online.wanan.xingchen.console.ConfigService config,
             @Value("${xingchen.onebot.allow-non-loopback:false}") boolean allowNonLoopback) {
         return new OneBotV11Configuration(java.net.URI.create(config.gatewayEndpoint("httpUrl",p.onebot().httpUrl())),java.net.URI.create(config.gatewayEndpoint("wsUrl",p.onebot().wsUrl())),
-                "XINGCHEN_ONEBOT_ACCESS_TOKEN",p.onebot().loginUserId(),allowNonLoopback,5000,10000,1000,30000,1000,90000);
+                "XINGCHEN_ONEBOT_HTTP_ACCESS_TOKEN","XINGCHEN_ONEBOT_WS_ACCESS_TOKEN",p.onebot().loginUserId(),allowNonLoopback,5000,10000,1000,30000,1000,90000);
     }
     @Bean(destroyMethod="close") public OneBotGateway oneBotGateway(OneBotV11Configuration config,ObjectMapper mapper,OneBotEventNormalizer normalizer,RuntimeIntegrationStatus switches,online.wanan.xingchen.console.ConfigService storedConfig) {
-        var credentials=Map.of("XINGCHEN_ONEBOT_ACCESS_TOKEN",storedConfig.gatewayToken());
+        var credentials=Map.of("XINGCHEN_ONEBOT_HTTP_ACCESS_TOKEN",storedConfig.gatewayToken(GatewaySecretStore.Transport.HTTP),"XINGCHEN_ONEBOT_WS_ACCESS_TOKEN",storedConfig.gatewayToken(GatewaySecretStore.Transport.WS));
         return new OneBotV11Gateway(config,mapper,normalizer,credentials,()->storedConfig.gatewayEnabled(switches.oneBotEnabled()));
     }
     @Bean @Profile("!gateway-fake-e2e") public OneBotConfigurationApplier oneBotConfigurationApplier(OneBotGateway oneBot,online.wanan.xingchen.console.ConfigService config,XingChenProperties properties,RuntimeIntegrationStatus switches,
@@ -50,8 +51,9 @@ public class ProductionRuntimeConfiguration {
         return new DshRc2Configuration(java.net.URI.create(p.dsh().baseUrl()),Path.of(workspace).toAbsolutePath(),storedConfig.dshLaunchToken(),provider,Duration.ofSeconds(10));
     }
     @Bean(destroyMethod="close") public DshGateway dshGateway(DshRc2Configuration config,ObjectMapper mapper,RuntimeIntegrationStatus switches) { return new DshRc2Adapter(config,mapper,switches::dshEnabled); }
-    @Bean public ApplicationRunner integrationStartup(RuntimeIntegrationStatus switches,OneBotGateway oneBot,
+    @Bean public RuntimeIntegrationStartup runtimeIntegrationStartup() { return new RuntimeIntegrationStartup(); }
+    @Bean public ApplicationRunner integrationStartup(RuntimeIntegrationStatus switches,RuntimeIntegrationStartup startup,
             online.wanan.xingchen.core.conversation.SocialRuntime social,DshInteractionCoordinator interactions) {
-        return args -> { if(switches.allEnabled()){social.start();interactions.start();} };
+        return args -> startup.start(switches,social::start,interactions::start);
     }
 }

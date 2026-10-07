@@ -18,14 +18,33 @@ public final class TestSqliteDatabase {
     public static void clean(JdbcTemplate jdbc,Path db){
         try{
             if(jdbc!=null&&jdbc.getDataSource() instanceof HikariDataSource pool)pool.close();
-            Path absolute=db.toAbsolutePath();
-            deleteWithRetry(Path.of(absolute+"-wal"));deleteWithRetry(Path.of(absolute+"-shm"));deleteWithRetry(absolute);
-            Path directory=absolute.getParent();if(directory!=null)Files.deleteIfExists(directory);
+            deleteOwnedDirectory(db);
         }catch(IOException e){throw new IllegalStateException("could not clean isolated SQLite test database",e);}
     }
     public static void clean(Path db){
-        try{Path absolute=db.toAbsolutePath();deleteWithRetry(Path.of(absolute+"-wal"));deleteWithRetry(Path.of(absolute+"-shm"));deleteWithRetry(absolute);Path directory=absolute.getParent();if(directory!=null)Files.deleteIfExists(directory);}
+        try{deleteOwnedDirectory(db);}
         catch(IOException e){throw new IllegalStateException("could not clean isolated SQLite test database",e);}
+    }
+    private static void deleteOwnedDirectory(Path db)throws IOException{
+        Path build=Path.of("build").toAbsolutePath().normalize();Path absolute=db.toAbsolutePath().normalize();Path directory=absolute.getParent();
+        boolean ownedBuildDirectory=directory!=null&&build.equals(directory.getParent())
+                &&(directory.getFileName().toString().startsWith("xingchen-")||directory.getFileName().toString().startsWith("dsh-restart-"))
+                &&(absolute.getFileName().toString().equals("test.sqlite")||absolute.getFileName().toString().equals("runtime.sqlite"));
+        if(ownedBuildDirectory){
+            for(int attempt=0;attempt<40&&Files.exists(directory);attempt++){
+                try(var paths=Files.walk(directory)){
+                    for(Path path:paths.sorted(java.util.Comparator.reverseOrder()).toList()){
+                        if(Files.isDirectory(path))try{Files.deleteIfExists(path);}catch(java.nio.file.DirectoryNotEmptyException ignored){}
+                        else deleteWithRetry(path);
+                    }
+                }
+                if(Files.exists(directory))try{Thread.sleep(50);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();throw new IOException("interrupted while cleaning isolated SQLite test directory",interrupted);}
+            }
+            if(Files.exists(directory))throw new IOException("isolated SQLite test directory remained non-empty");
+            return;
+        }
+        deleteWithRetry(Path.of(absolute+"-wal"));deleteWithRetry(Path.of(absolute+"-shm"));deleteWithRetry(Path.of(absolute+"-journal"));deleteWithRetry(absolute);
+        if(directory!=null)try{Files.deleteIfExists(directory);}catch(java.nio.file.DirectoryNotEmptyException ignored){}
     }
     private static void deleteWithRetry(Path path)throws IOException{
         IOException last=null;

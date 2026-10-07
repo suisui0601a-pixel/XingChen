@@ -98,8 +98,11 @@ public class RuntimeGraphConfiguration {
     @Bean(destroyMethod="close") public SocialRuntime socialRuntime(OneBotGateway gateway,ConversationOrchestrator orchestrator,
             SocialTriggerPolicy triggers,ParticipationPolicy participation,ReservedModeMachine reserved,HumanInteractionRouter interactions,
             SimulationStateService simulation,DurableTurnExecutionStore turnJournal,ShortContextResetService resetService,
-            ConversationResetCoordinator resetCoordinator,XingChenProperties properties,online.wanan.xingchen.console.SocialSettingsService socialSettings,online.wanan.xingchen.console.AccessControlService accessControl) {
-        var runtime=new SocialRuntime(gateway,orchestrator,triggers,participation,reserved,()->0.0,interactions::route,simulation,turnJournal);runtime.setResetService(resetService);runtime.setResetControl(resetCoordinator,properties.owner().platformUserId());runtime.setSocialSettingsService(socialSettings);runtime.setAccessControlService(accessControl);return runtime;
+            ConversationResetCoordinator resetCoordinator,XingChenProperties properties,RuntimeIntegrationStatus switches,
+            online.wanan.xingchen.console.SocialSettingsService socialSettings,online.wanan.xingchen.console.AccessControlService accessControl) {
+        var runtime=new SocialRuntime(gateway,orchestrator,triggers,participation,reserved,()->0.0,
+                event->switches.dshEnabled()&&interactions.route(event),simulation,turnJournal);
+        runtime.setResetService(resetService);runtime.setResetControl(resetCoordinator,properties.owner().platformUserId());runtime.setSocialSettingsService(socialSettings);runtime.setAccessControlService(accessControl);return runtime;
     }
     @Bean public DshSessionService dshSessionService(SqliteDshSessionMappingRepository mappings,DshGateway gateway,Clock clock,
             @Value("${xingchen.dsh.workspace-path:${user.dir}}") String workspace) {

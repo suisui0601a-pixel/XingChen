@@ -31,6 +31,14 @@ class SocialRuntimeContractTest {
         verify(orchestrator,timeout(2000)).handle(event,false);runtime.close();
     }
 
+    @Test void run303_accessDenialPrecedesWakeAndRandomParticipationEvenAtOneHundredPercent() throws Exception {
+        var gateway=mock(OneBotGateway.class);var orchestrator=mock(ConversationOrchestrator.class);var access=mock(online.wanan.xingchen.console.AccessControlService.class);var listener=new AtomicReference<java.util.function.Consumer<PlatformEvent>>();
+        when(gateway.connect()).thenReturn(new GatewayStatus(true,"bot","connected"));when(access.evaluate(anyString(),anyString(),anyString(),anyString(),anyBoolean())).thenReturn(new online.wanan.xingchen.console.AccessControlService.Decision(false,"DEFAULT_DENY"));doAnswer(i->{listener.set(i.getArgument(0));return null;}).when(gateway).setEventListener(any());
+        var runtime=new SocialRuntime(gateway,orchestrator,new SocialTriggerPolicy("bot",java.util.List.of()),new ParticipationPolicy(()->0),reserved(),()->1.0);runtime.setAccessControlService(access);
+        runtime.start();var event=event(ConversationType.GROUP,"u-denied","m-denied");listener.get().accept(event);
+        verify(access,timeout(2000)).evaluate("QQ","u-denied","GROUP","g1",false);verifyNoInteractions(orchestrator);runtime.close();
+    }
+
     @Test void audit_serializesWithinConversationButRunsOtherConversationsInParallel() throws Exception {
         var gateway=mock(OneBotGateway.class);var orchestrator=mock(ConversationOrchestrator.class);var listener=new AtomicReference<java.util.function.Consumer<PlatformEvent>>();
         when(gateway.connect()).thenReturn(new GatewayStatus(true,"bot","connected"));when(gateway.status()).thenReturn(new GatewayStatus(true,"bot","connected"));doAnswer(i->{listener.set(i.getArgument(0));return null;}).when(gateway).setEventListener(any());

@@ -37,7 +37,7 @@ class SocialRuntimeStressE2ETest {
             var remember=new ModelToolCall("remember-stress","memory.remember",Map.of("type","PREFERENCE","content","stress memory","scope","PERSON_GLOBAL","importance",.9));
             var address=new ModelToolCall("address-stress","memory.setAddress",Map.of("targetPersonId",target.toString(),"address","姐姐","scope","CONVERSATION","scopeId",group));
             var modelBarrier=provider.enqueueBlocked(toolResponse(remember));provider.enqueue(waitDecision()).enqueue(textDecision("WAIT continuation reply"));
-            provider.enqueue(toolResponse(address)).enqueue(noReply());for(int i=0;i<14;i++)provider.enqueue(noReply());
+            provider.enqueue(toolResponse(address)).enqueue(noReply());for(int i=0;i<24;i++)provider.enqueue(noReply());
             var toolGate=observer.arm(TestTurnBoundaryObserver.Phase.TOOL_EXECUTED);
             fake.emit(message(first,1,group,actor,"ordinary while sleeping"));await(()->completed(jdbc,String.valueOf(first)),8000);
             fake.emit(payload(first+1,group,2,"mention-question"));assertThat(modelBarrier.awaitStarted(8,TimeUnit.SECONDS)).as("slow model barrier").isTrue();

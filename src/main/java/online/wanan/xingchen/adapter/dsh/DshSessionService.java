@@ -25,7 +25,7 @@ public final class DshSessionService {
             throw new SecurityException("closed-agent DSH access denied");
         return ensure(actor.conversation().id(),mode,preset,model,policyHash);
     }
-    public synchronized void reset(UUID conversation){var prior=mappings.current(conversation);if(prior==null)return;dsh.stop(prior.sessionId());dsh.archive(prior.sessionId());mappings.retire(conversation,clock.instant());}
+    public synchronized void reset(UUID conversation){var prior=mappings.current(conversation);if(prior==null)return;if(dsh.isEnabled()){dsh.stop(prior.sessionId());dsh.archive(prior.sessionId());}mappings.retire(conversation,clock.instant());}
     public void promptClosedAgent(ResolvedActorContext actor,DshSessionMapping mapping,String text,boolean identityCertain,ClosedAgentAccessPolicy policy){
         Objects.requireNonNull(actor);Objects.requireNonNull(mapping);Objects.requireNonNull(policy);
         if(!policy.allows(actor.conversation().identity().type(),actor.flags().owner(),mapping.mode(),identityCertain)||!mapping.conversationId().equals(actor.conversation().id()))
