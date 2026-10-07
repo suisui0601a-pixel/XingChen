@@ -448,7 +448,7 @@ test('Persona and Simulation are read-only built-in baselines; legacy history re
   await page.goto('/login'); await page.getByLabel('管理员账号').fill(username); await page.getByLabel('密码').fill(password); await page.getByRole('button',{name:'登录'}).click();await expect(page.getByRole('heading',{name:'总览'})).toBeVisible()
   await page.goto('/persona');await expect(page.getByRole('heading',{name:'人格（Persona）',level:1})).toBeVisible();await expect(page.getByText('Core 内建 · 只读').first()).toBeVisible();await expect(page.getByText('Legacy Recovered')).toBeVisible();await expect(page.getByText('01a694ed6be58e2c8c92a7db5a288f615c30aa222f2f7d10cace3af3ba262cad')).toBeVisible();await expect(page.locator('.prompt-preview').first()).not.toBeEmpty();await expect(page.locator('textarea')).toHaveCount(0);await expect(page.getByRole('button',{name:/保存|回滚/})).toHaveCount(0)
   await expect(page.getByText('旧数据库版本仅保留为历史证据。')).toBeVisible()
-  await page.goto('/simulation');await expect(page.getByRole('heading',{name:'仿真规则（Simulation）',level:1})).toBeVisible();await expect(page.getByText('Core 内建 · 只读').first()).toBeVisible();await expect(page.getByText('')).toBeVisible();await expect(page.locator('textarea')).toHaveCount(0);await expect(page.getByRole('button',{name:/保存|回滚/})).toHaveCount(0)
+  await page.goto('/simulation');await expect(page.getByRole('heading',{name:'仿真规则（Simulation）',level:1})).toBeVisible();await expect(page.getByText('Core 内建 · 只读').first()).toBeVisible();await expect(page.getByText('Synthetic CI simulation rules.')).toBeVisible();await expect(page.locator('textarea')).toHaveCount(0);await expect(page.getByRole('button',{name:/保存|回滚/})).toHaveCount(0)
   await page.getByLabel('语言').selectOption('en-US');await page.setViewportSize({width:375,height:812});await page.reload();await expect(page.getByRole('heading',{name:'Simulation',level:1})).toBeVisible();await expect(page.locator('textarea')).toHaveCount(0);await expect(page.getByText('Hard Security Policy (read-only)')).toBeVisible()
   await openMobileNavigation(page,'en-US');await page.getByRole('button',{name:'Sign out'}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Confirm'}).click();await expect(page).toHaveURL(/\/login$/);expect((await page.request.get('/api/prompts/PERSONA/current')).status()).toBe(401);expect((await page.request.get('/api/prompts/security')).status()).toBe(401)
 })
@@ -464,7 +464,7 @@ test('social settings overrides and fake model management are secret-safe, persi
 
   await page.goto(`/social-settings?conversation=${conversation}`)
   await expect(page.getByRole('heading', { name: '社交设置' })).toBeVisible()
-  await expect(page.getByText(/当前 reserved2 runtime 没有主动发言调度器/)).toBeVisible()
+  await expect(page.getByText(/当前 runtime 没有主动发言调度器/)).toBeVisible()
   const probability = page.getByRole('spinbutton', { name: '普通消息参与概率' })
   await probability.fill('0.35')
   await page.getByRole('button', { name: '保存全局设置' }).click()

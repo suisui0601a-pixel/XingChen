@@ -43,10 +43,12 @@ def main() -> int:
             except ET.ParseError:
                 pass
         failures = sum(c.find("failure") is not None or c.find("error") is not None for c in cases)
-        selected = [c for c in cases if c.attrib.get("classname") == CLASS and c.attrib.get("name") == METHOD]
+        selected = [c for c in cases if c.attrib.get("classname") == CLASS
+                    and c.attrib.get("name", "").split("(", 1)[0] == METHOD]
         passed = result.returncode == 0 and len(selected) == 1 and failures == 0
         row = {"run": run, "status": "PASS" if passed else "FAIL", "gradleExitCode": result.returncode,
                "testCases": len(cases), "selectedStressCase": len(selected), "failures": failures,
+               "testCaseNames": [f"{c.attrib.get('classname')}#{c.attrib.get('name')}" for c in cases],
                "elapsedSeconds": round(time.monotonic() - started, 3)}
         with summary_path.open("a", encoding="utf-8") as out:
             out.write(json.dumps(row) + "\n")

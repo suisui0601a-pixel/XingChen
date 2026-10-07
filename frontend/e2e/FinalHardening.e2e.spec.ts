@@ -96,7 +96,7 @@ test('prompt write APIs enforce CSRF and immutability without exposing request d
  const csrf=(await (await page.request.get('/api/auth/csrf')).json()).token
  const immutable=await page.request.post(path,{headers:{'X-XSRF-TOKEN':csrf},data:body});expect(immutable.status()).toBe(409)
  expect(JSON.stringify(await immutable.json())).not.toContain(body.content)
- expect(await page.locator('body')).not.toContainText(body.content)
+ expect(await page.locator('body').innerText()).not.toContain(body.content)
 })
 test('keyboard-only login, read-only Persona navigation and logout',async({page})=>{
  test.setTimeout(90_000);await page.setViewportSize({width:430,height:900});await page.goto('/login')

@@ -48,7 +48,7 @@ def main() -> int:
             except ET.ParseError:
                 pass
         failures = sum(c.find("failure") is not None or c.find("error") is not None for c in cases)
-        names = {(c.attrib.get("classname"), c.attrib.get("name")) for c in cases}
+        names = {(c.attrib.get("classname"), c.attrib.get("name", "").split("(", 1)[0]) for c in cases}
         gate = f"THREAD_LIFETIME_CLASS|production|pid="
         boundary = "THREAD_LIFETIME_BOUNDARY|pid="
         pids = []
@@ -61,6 +61,7 @@ def main() -> int:
                   and (GATE_CLASS, GATE_METHOD) in names and (STRESS_CLASS, STRESS_METHOD) in names)
         row = {"run": run, "status": "PASS" if passed else "FAIL", "gradleExitCode": result.returncode,
                "testCases": len(cases), "failures": failures, "sameWorkerJvm": marker_ok,
+               "testCaseNames": [f"{c.attrib.get('classname')}#{c.attrib.get('name')}" for c in cases],
                "activePriorThreads": 0 if "activePriorThreads=0" in stdout else None,
                "elapsedSeconds": round(time.monotonic() - started, 3)}
         with summary_path.open("a", encoding="utf-8") as out:
