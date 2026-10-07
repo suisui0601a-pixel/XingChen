@@ -4,7 +4,8 @@ const routes=['/','/gateway','/conversations','/people','/relationships','/memor
 async function login(page:Page){await page.goto('/login');await page.getByLabel('管理员账号').fill('e2e-admin');await page.getByLabel('密码').fill('local-e2e-console-password');await page.getByRole('button',{name:'登录'}).click();await expect(page).toHaveURL('/')}
 async function layout(page:Page){
  await expect(page.locator('h1')).toBeVisible()
- expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no body overflow').toBe(true)
+ const viewport=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,offenders:Array.from(document.querySelectorAll('*')).map(el=>({tag:el.tagName,cls:(el as HTMLElement).className?.toString().slice(0,80),right:Math.round(el.getBoundingClientRect().right),width:Math.round(el.getBoundingClientRect().width)})).filter(el=>el.right>innerWidth+1).slice(0,8)}))
+ expect(viewport.scrollWidth,`no body overflow: ${JSON.stringify(viewport)}`).toBeLessThanOrEqual(viewport.width)
  const escaped=await page.locator('.content button,.content input,.content select,.content textarea').evaluateAll(elements=>elements.filter(el=>{
   const r=el.getBoundingClientRect();if(!r.width||!r.height)return false
   const table=el.closest('.responsive-table,.slang-table-wrap')
@@ -74,46 +75,34 @@ async function tabTo(page:Page,target:Locator){
  for(let i=0;i<100;i++){if(await target.evaluate(el=>el===document.activeElement))return;await page.keyboard.press('Tab')}
  throw new Error('Keyboard target was not reachable')
 }
-test('administrator HTML payload remains text in prompt editor, history and diff',async({page})=>{
+test('prompt baseline is immutable and HTML input cannot mutate or execute in it',async({page})=>{
  await login(page);await page.goto('/persona')
- const editor=page.getByLabel('人格');await expect(editor).toBeVisible()
- const original=await editor.inputValue()
- const originalVersion=await (await page.request.get('/api/prompts/PERSONA/current')).json()
+ await expect(page.getByRole('heading',{name:'人格（Persona）',level:1})).toBeVisible()
+ await expect(page.locator('textarea')).toHaveCount(0);await expect(page.getByRole('button',{name:/保存|回滚/})).toHaveCount(0)
+ const original=await (await page.request.get('/api/prompts/PERSONA/current')).json()
  const payload='<script>window.__xingchenXss=1</script><img src=x onerror="window.__xingchenXss=2">'
- await editor.fill(original+'\n'+payload)
- await page.getByRole('button',{name:'保存为新版本并启用'}).click()
- await expect(page.locator('.notice')).toContainText('已创建并启用')
- const saved=await (await page.request.get('/api/prompts/PERSONA/current')).json()
- await expect(page.locator('.prompt-version.active .prompt-version-title')).toContainText('版本 v'+saved.version)
- await page.locator('.prompt-version.active .prompt-version-title').click()
- await expect(page.locator('.prompt-preview').first()).toContainText(payload)
- await page.getByRole('button',{name:'与当前比较',exact:true}).last().click()
- await expect(page.getByLabel('逐行版本差异')).toContainText(payload)
+ const csrf=(await (await page.request.get('/api/auth/csrf')).json()).token
+ const rejected=await page.request.post('/api/prompts/PERSONA/versions',{headers:{'X-XSRF-TOKEN':csrf},data:{content:payload,note:'security test',expectedActiveVersionId:original.id}})
+ expect(rejected.status()).toBe(409)
+ expect((await (await page.request.get('/api/prompts/PERSONA/current')).json()).sha256).toBe(original.sha256)
  expect(await page.locator('.page script,.page img[onerror]').count()).toBe(0)
  expect(await page.evaluate(()=>Reflect.get(window,'__xingchenXss'))).toBeUndefined()
- await page.getByRole('button',{name:'版本 v'+originalVersion.version,exact:true}).click()
- await page.getByRole('button',{name:'回滚到此内容'}).click()
- await page.getByRole('dialog',{name:'确认回滚'}).getByRole('button',{name:'创建回滚版本'}).click()
- await expect(editor).toHaveValue(original)
 })
-test('CSRF 403 mutation shows a distinct safe error associated with prompt fields without replay',async({page,expectedHttpErrors})=>{
- await login(page);await page.goto('/persona');const editor=page.getByLabel('人格');await expect(editor).toBeVisible();const original=await editor.inputValue()
- let writes=0;expectedHttpErrors.push({path:'/api/prompts/PERSONA/versions',status:403})
- await page.route('**/api/prompts/PERSONA/versions',r=>{writes++;return r.fulfill({status:403,contentType:'application/json',body:'{"code":"CSRF_INVALID","message":"synthetic secret body"}'})})
- await editor.fill(original+' csrf test');await page.getByRole('button',{name:'保存为新版本并启用'}).click()
- await expect(page.getByRole('alert')).toContainText('请求校验失败')
- await expect(editor).toHaveAttribute('aria-invalid','true');await expect(editor).toHaveAttribute('aria-describedby',/prompt-error/)
- await expect(page.locator('body')).not.toContainText('synthetic secret body');expect(writes).toBe(1)
- await editor.fill(original)
+test('prompt write APIs enforce CSRF and immutability without exposing request data',async({page,expectedHttpErrors})=>{
+ await login(page);await page.goto('/persona');await expect(page.locator('textarea')).toHaveCount(0)
+ const path='/api/prompts/PERSONA/versions';const body={content:'synthetic private prompt',note:'test',expectedActiveVersionId:'legacy'}
+ expectedHttpErrors.push({path,status:403})
+ const csrfFailure=await page.request.post(path,{data:body});expect(csrfFailure.status()).toBe(403)
+ const csrf=(await (await page.request.get('/api/auth/csrf')).json()).token
+ const immutable=await page.request.post(path,{headers:{'X-XSRF-TOKEN':csrf},data:body});expect(immutable.status()).toBe(409)
+ expect(JSON.stringify(await immutable.json())).not.toContain(body.content)
+ expect(await page.locator('body')).not.toContainText(body.content)
 })
-test('keyboard-only login, mobile navigation, form mutation, dialog cancel/confirm and logout',async({page})=>{
+test('keyboard-only login, read-only Persona navigation and logout',async({page})=>{
  test.setTimeout(90_000);await page.setViewportSize({width:430,height:900});await page.goto('/login')
  await tabTo(page,page.getByLabel('管理员账号'));await page.keyboard.type('e2e-admin');await page.keyboard.press('Tab');await page.keyboard.type('local-e2e-console-password');await page.keyboard.press('Enter');await expect(page).toHaveURL('/')
  await tabTo(page,page.getByRole('button',{name:'打开导航'}));await page.keyboard.press('Enter')
  await tabTo(page,page.getByRole('link',{name:'人格',exact:true}));await page.keyboard.press('Enter');await expect(page).toHaveURL('/persona')
- const editor=page.getByLabel('人格');await tabTo(page,editor);await page.keyboard.press('End');await page.keyboard.type(' keyboard audit');await tabTo(page,page.getByRole('button',{name:'保存为新版本并启用'}));await page.keyboard.press('Enter');await expect(page.locator('.notice')).toContainText('已创建并启用')
- await tabTo(page,page.getByRole('button',{name:'版本 v1',exact:true}));await page.keyboard.press('Enter');await tabTo(page,page.getByRole('button',{name:'回滚到此内容'}));await page.keyboard.press('Enter')
- const dialog=page.getByRole('dialog',{name:'确认回滚'});await expect(dialog).toBeVisible();await expect(dialog.getByRole('button',{name:'取消'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(dialog.getByRole('button',{name:'创建回滚版本'})).toBeFocused();await page.keyboard.press('Tab');await expect(dialog.getByRole('button',{name:'取消'})).toBeFocused();await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(page.getByRole('button',{name:'回滚到此内容'})).toBeFocused()
- await page.keyboard.press('Enter');await page.keyboard.press('Tab');await page.keyboard.press('Enter');await expect(dialog).not.toBeVisible()
+ await expect(page.getByRole('heading',{name:'人格（Persona）',level:1})).toBeVisible();await expect(page.locator('textarea')).toHaveCount(0);await expect(page.getByRole('button',{name:/保存|回滚/})).toHaveCount(0)
  await tabTo(page,page.getByRole('button',{name:'打开导航'}));await page.keyboard.press('Enter');await tabTo(page,page.getByRole('button',{name:'退出登录'}));await page.keyboard.press('Enter');await expect(page.getByRole('alertdialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'退出登录'})).toBeFocused();await page.keyboard.press('Enter');await page.keyboard.press('Tab');await page.keyboard.press('Enter');await expect(page).toHaveURL(/\/login$/)
 })

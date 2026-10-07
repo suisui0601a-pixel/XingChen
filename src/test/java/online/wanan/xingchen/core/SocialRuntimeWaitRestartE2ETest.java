@@ -28,21 +28,23 @@ import java.util.function.BooleanSupplier;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SocialRuntimeWaitRestartE2ETest {
-    @Test void promptRuntime001_turnCapturesBothActiveLayersBeforeModelBarrier() throws Exception {
+    @Test void promptRuntime001_databasePromptVersionsCannotOverrideBuiltInLayers() throws Exception {
         Path db=TestSqliteDatabase.create("prompt-turn-snapshot");String url=TestSqliteDatabase.jdbcUrl(db);JdbcTemplate cleanupJdbc=null;String originalPersona="",originalSimulation="";
         try(ConfigurableApplicationContext context=start(url)){
             var jdbc=context.getBean(JdbcTemplate.class);cleanupJdbc=jdbc;var console=context.getBean(online.wanan.xingchen.console.PromptConsoleService.class);var runtime=context.getBean(SocialRuntime.class);var fake=context.getBean(FakeOneBotServer.class);var model=context.getBean(MockModelProvider.class);
             var persona=(java.util.Map<?,?>)console.current("PERSONA");var simulation=(java.util.Map<?,?>)console.current("SIMULATION");originalPersona=Objects.toString(persona.get("content"));originalSimulation=Objects.toString(simulation.get("content"));var result=AgentDecision.noReply();var usage=new ModelUsage(1,0,1,1,0,"fixture","fixture-model",1);var barrier=model.enqueueBlocked(new ModelResponse(result,usage,null));runtime.start();await(()->fake.wsConnections()>0,5000);fake.emit(privateEvent("930301",40,"snapshot A"));assertThat(barrier.awaitStarted(5,TimeUnit.SECONDS)).isTrue();
-            var persona2=console.create("PERSONA","PERSONA_AFTER_BARRIER","",Objects.toString(persona.get("id")),"prompt-admin");var simulation2=console.create("SIMULATION","SIMULATION_AFTER_BARRIER","",Objects.toString(simulation.get("id")),"prompt-admin");
+            String profile="8f3e9d9f-77d9-5d99-9cb4-f1eea5678abc",personaId="legacy-persona",simulationId="legacy-simulation";
+            jdbc.update("INSERT INTO prompt_profiles(id,name,simulation_prompt,persona_prompt,updated_at) VALUES(?,?,?,?,?)",profile,"Default","DB_SIMULATION_OVERRIDE","DB_PERSONA_OVERRIDE","now");
+            jdbc.update("INSERT INTO prompt_versions(id,profile_id,layer,content,version,created_at,created_by,checksum) VALUES(?,?,?,?,?,?,?,?)",personaId,profile,"PERSONA","DB_PERSONA_OVERRIDE",1,"now","test","legacy");
+            jdbc.update("INSERT INTO prompt_versions(id,profile_id,layer,content,version,created_at,created_by,checksum) VALUES(?,?,?,?,?,?,?,?)",simulationId,profile,"SIMULATION","DB_SIMULATION_OVERRIDE",1,"now","test","legacy");
+            jdbc.update("UPDATE prompt_profiles SET active_persona_version_id=?,active_simulation_version_id=? WHERE id=?",personaId,simulationId,profile);
             barrier.release();assertThat(barrier.awaitReturned(5,TimeUnit.SECONDS)).isTrue();await(()->jdbc.queryForObject("SELECT COUNT(*) FROM inbound_turn_executions WHERE incoming_event_id='930301' AND status='COMPLETED'",Integer.class)==1,5000);
-            var turnA=model.requests().getFirst().context();assertThat(turnA.persona()).isEqualTo(Objects.toString(persona.get("content")));assertThat(turnA.simulationPrompt()).isEqualTo(Objects.toString(simulation.get("content")));assertThat(turnA.taskState()).containsEntry("prompt.personaVersionId",Objects.toString(persona.get("id"))).containsEntry("prompt.simulationVersionId",Objects.toString(simulation.get("id")));
-            model.enqueue(new ModelResponse(result,usage,null));fake.emit(privateEvent("930302",41,"snapshot B"));await(()->model.requests().size()==2,5000);var turnB=model.requests().get(1).context();assertThat(turnB.persona()).isEqualTo("PERSONA_AFTER_BARRIER");assertThat(turnB.simulationPrompt()).isEqualTo("SIMULATION_AFTER_BARRIER");
-            console.rollback("PERSONA",UUID.fromString(Objects.toString(persona.get("id"))),Objects.toString(persona2.get("id")),"prompt-admin");console.rollback("SIMULATION",UUID.fromString(Objects.toString(simulation.get("id"))),Objects.toString(simulation2.get("id")),"prompt-admin");
-            model.enqueue(new ModelResponse(result,usage,null));fake.emit(privateEvent("930303",42,"snapshot after rollback"));await(()->model.requests().size()==3,5000);var turnC=model.requests().get(2).context();assertThat(turnC.persona()).isEqualTo(Objects.toString(persona.get("content")));assertThat(turnC.simulationPrompt()).isEqualTo(Objects.toString(simulation.get("content")));
+            var turnA=model.requests().getFirst().context();assertThat(turnA.persona()).isEqualTo(originalPersona);assertThat(turnA.simulationPrompt()).isEqualTo(originalSimulation);assertThat(turnA.taskState().get("prompt.personaVersionId")).startsWith("BUILT_IN:");assertThat(turnA.taskState().get("prompt.simulationVersionId")).startsWith("BUILT_IN:");
+            model.enqueue(new ModelResponse(result,usage,null));fake.emit(privateEvent("930302",41,"snapshot B"));await(()->model.requests().size()==2,5000);var turnB=model.requests().get(1).context();assertThat(turnB.persona()).isEqualTo(originalPersona);assertThat(turnB.simulationPrompt()).isEqualTo(originalSimulation);
         }
         try(ConfigurableApplicationContext restarted=start(url)){
-            var console=restarted.getBean(online.wanan.xingchen.console.PromptConsoleService.class);assertThat(console.current("PERSONA")).containsEntry("content",originalPersona).containsEntry("version",3);assertThat(console.current("SIMULATION")).containsEntry("content",originalSimulation).containsEntry("version",3);
-            var jdbc=restarted.getBean(JdbcTemplate.class);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM prompt_versions WHERE layer='PERSONA'",Integer.class)).isEqualTo(3);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM prompt_versions WHERE layer='SIMULATION'",Integer.class)).isEqualTo(3);
+            var console=restarted.getBean(online.wanan.xingchen.console.PromptConsoleService.class);assertThat(console.current("PERSONA")).containsEntry("content",originalPersona).containsEntry("sha256",online.wanan.xingchen.core.prompt.PromptBaselineService.PERSONA_SHA256);assertThat(console.current("SIMULATION")).containsEntry("content",originalSimulation).containsEntry("sha256",online.wanan.xingchen.core.prompt.PromptBaselineService.SIMULATION_SHA256);
+            var jdbc=restarted.getBean(JdbcTemplate.class);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM prompt_versions WHERE layer='PERSONA'",Integer.class)).isEqualTo(1);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM prompt_versions WHERE layer='SIMULATION'",Integer.class)).isEqualTo(1);
         }finally{TestSqliteDatabase.clean(cleanupJdbc,db);}
     }
 
@@ -50,8 +52,8 @@ class SocialRuntimeWaitRestartE2ETest {
         Path db=TestSqliteDatabase.create("social-reset-prompt-context");String url=TestSqliteDatabase.jdbcUrl(db);JdbcTemplate cleanupJdbc=null;
         try(ConfigurableApplicationContext context=start(url,"--xingchen.prompt.persona-version=3","--xingchen.prompt.simulation-version=3",
                 "--xingchen.prompt.persona=PERSONA_ACTIVE_V3","--xingchen.prompt.simulation=SIMULATION_ACTIVE_V3")){
-            var prompts=context.getBean(online.wanan.xingchen.core.prompt.PromptSections.class);assertThat(prompts.personaVersion()).isEqualTo(3);assertThat(prompts.simulationVersion()).isEqualTo(3);
-            var jdbc=context.getBean(JdbcTemplate.class);cleanupJdbc=jdbc;String profile=prompts.profileId().toString();jdbc.update("DELETE FROM prompt_versions WHERE profile_id=?",profile);jdbc.update("UPDATE prompt_profiles SET simulation_prompt='SIMULATION_ACTIVE_V3',persona_prompt='PERSONA_ACTIVE_V3',active_simulation_version_id=NULL,active_persona_version_id=NULL WHERE id=?",profile);
+            var prompts=context.getBean(online.wanan.xingchen.core.prompt.PromptSections.class);assertThat(prompts.personaVersion()).isEqualTo(1);assertThat(prompts.simulationVersion()).isEqualTo(1);
+            var jdbc=context.getBean(JdbcTemplate.class);cleanupJdbc=jdbc;String profile=prompts.profileId().toString();jdbc.update("INSERT INTO prompt_profiles(id,name,simulation_prompt,persona_prompt,updated_at) VALUES(?,?,?,?,?)",profile,"Default","SIMULATION_ACTIVE_V3","PERSONA_ACTIVE_V3","now");jdbc.update("DELETE FROM prompt_versions WHERE profile_id=?",profile);jdbc.update("UPDATE prompt_profiles SET simulation_prompt='SIMULATION_ACTIVE_V3',persona_prompt='PERSONA_ACTIVE_V3',active_simulation_version_id=NULL,active_persona_version_id=NULL WHERE id=?",profile);
             seedPromptHistory(jdbc,profile,"PERSONA",List.of("PERSONA_V1","PERSONA_V2","PERSONA_ACTIVE_V3"));seedPromptHistory(jdbc,profile,"SIMULATION",List.of("SIMULATION_V1","SIMULATION_V2","SIMULATION_ACTIVE_V3"));
             jdbc.update("UPDATE prompt_profiles SET active_persona_version_id=?,active_simulation_version_id=? WHERE id=?",UUID.nameUUIDFromBytes((profile+"PERSONA2").getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString(),UUID.nameUUIDFromBytes((profile+"SIMULATION2").getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString(),profile);
             var promptHistoryBefore=jdbc.queryForList("SELECT id,layer,version,checksum FROM prompt_versions WHERE profile_id=? ORDER BY layer,version",profile);
@@ -66,8 +68,8 @@ class SocialRuntimeWaitRestartE2ETest {
             assertThat(jdbc.queryForObject("SELECT simulation_prompt FROM prompt_profiles WHERE id=?",String.class,profile)).isEqualTo("SIMULATION_ACTIVE_V3");assertThat(jdbc.queryForObject("SELECT persona_prompt FROM prompt_profiles WHERE id=?",String.class,profile)).isEqualTo("PERSONA_ACTIVE_V3");
             provider.enqueue(new ModelResponse(AgentDecision.noReply(),new ModelUsage(2,0,2,1,0,"fixture","fixture-model",1),null));fake.emit(privateEvent("930103",22,"after reset"));
             await(()->provider.requests().size()==2,8000);
-            var nextContext=provider.requests().get(1).context();assertThat(nextContext.persona()).isEqualTo("PERSONA_ACTIVE_V3");
-            assertThat(nextContext.simulationPrompt()).isEqualTo("SIMULATION_ACTIVE_V3");
+            var nextContext=provider.requests().get(1).context();assertThat(nextContext.persona()).isEqualTo(context.getBean(online.wanan.xingchen.core.prompt.PromptBaselineService.class).loadPersona());
+            assertThat(nextContext.simulationPrompt()).isEqualTo(context.getBean(online.wanan.xingchen.core.prompt.PromptBaselineService.class).loadSimulation());
             assertThat(context.getBean(online.wanan.xingchen.core.prompt.PromptSections.class)).isEqualTo(prompts);
 
             var repo=new online.wanan.xingchen.core.prompt.InMemoryPromptRepository();UUID rollbackId=UUID.randomUUID();repo.save(new online.wanan.xingchen.core.prompt.PromptProfile(rollbackId,"rollback","SIMULATION_V3","PERSONA_V3"));
@@ -472,12 +474,12 @@ class SocialRuntimeWaitRestartE2ETest {
     private static String[] join(String a,String b,String c,String d,String[] additional){var args=new java.util.ArrayList<String>(List.of(a,b,c,d));args.addAll(List.of(additional));return args.toArray(String[]::new);}
     private static String event(String id,long sequence,String text,boolean mention){
         String prefix=mention?"{\"type\":\"at\",\"data\":{\"qq\":\"test-bot\"}},":"";
-        return "{\"post_type\":\"message\",\"message_type\":\"group\",\"self_id\":\"test-bot\",\"user_id\":\"user-a\",\"group_id\":\"restart-group\",\"time\":1790000000,\"message_id\":\""+id+"\",\"message_seq\":"+sequence+",\"sender\":{\"user_id\":\"user-a\",\"nickname\":\"User A\"},\"message\":["+prefix+"{\"type\":\"text\",\"data\":{\"text\":\""+text+"\"}}]}";
+        return "{\"post_type\":\"message\",\"message_type\":\"group\",\"self_id\":\"test-bot\",\"user_id\":\"user-a\",\"group_id\":\"restart-group\",\"time\":100000002,\"message_id\":\""+id+"\",\"message_seq\":"+sequence+",\"sender\":{\"user_id\":\"user-a\",\"nickname\":\"User A\"},\"message\":["+prefix+"{\"type\":\"text\",\"data\":{\"text\":\""+text+"\"}}]}";
     }
     private static String groupEvent(String group,String id,long sequence,String text,boolean mention){
         String prefix=mention?"{\"type\":\"at\",\"data\":{\"qq\":\"test-bot\"}},":"";
-        return "{\"post_type\":\"message\",\"message_type\":\"group\",\"self_id\":\"test-bot\",\"user_id\":\"user-a\",\"group_id\":\""+group+"\",\"time\":1790000000,\"message_id\":\""+id+"\",\"message_seq\":"+sequence+",\"sender\":{\"user_id\":\"user-a\",\"nickname\":\"User A\"},\"message\":["+prefix+"{\"type\":\"text\",\"data\":{\"text\":\""+text+"\"}}]}";
+        return "{\"post_type\":\"message\",\"message_type\":\"group\",\"self_id\":\"test-bot\",\"user_id\":\"user-a\",\"group_id\":\""+group+"\",\"time\":100000002,\"message_id\":\""+id+"\",\"message_seq\":"+sequence+",\"sender\":{\"user_id\":\"user-a\",\"nickname\":\"User A\"},\"message\":["+prefix+"{\"type\":\"text\",\"data\":{\"text\":\""+text+"\"}}]}";
     }
-    private static String privateEvent(String id,long sequence,String text){return "{\"post_type\":\"message\",\"message_type\":\"private\",\"self_id\":\"test-bot\",\"user_id\":\"owner-test\",\"time\":1790000000,\"message_id\":\""+id+"\",\"message_seq\":"+sequence+",\"sender\":{\"user_id\":\"owner-test\",\"nickname\":\"Owner\"},\"message\":[{\"type\":\"text\",\"data\":{\"text\":\""+text+"\"}}]}";}
+    private static String privateEvent(String id,long sequence,String text){return "{\"post_type\":\"message\",\"message_type\":\"private\",\"self_id\":\"test-bot\",\"user_id\":\"owner-test\",\"time\":100000002,\"message_id\":\""+id+"\",\"message_seq\":"+sequence+",\"sender\":{\"user_id\":\"owner-test\",\"nickname\":\"Owner\"},\"message\":[{\"type\":\"text\",\"data\":{\"text\":\""+text+"\"}}]}";}
     private static void await(BooleanSupplier condition,long timeoutMillis)throws InterruptedException{long until=System.nanoTime()+TimeUnit.MILLISECONDS.toNanos(timeoutMillis);while(!condition.getAsBoolean()&&System.nanoTime()<until)Thread.sleep(20);assertThat(condition.getAsBoolean()).isTrue();}
 }

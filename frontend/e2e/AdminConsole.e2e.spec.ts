@@ -444,23 +444,13 @@ test('people, relationship and memory labels are localized in Chinese and Englis
   await expect(page.getByLabel('创建时间止（不含）')).toBeVisible()
 })
 
-test('Persona and Simulation prompts create immutable versions, compare, rollback and persist across reload', async ({ page }) => {
-  test.setTimeout(90_000)
+test('Persona and Simulation are read-only built-in baselines; legacy history remains visible', async ({ page }) => {
   await page.goto('/login'); await page.getByLabel('管理员账号').fill(username); await page.getByLabel('密码').fill(password); await page.getByRole('button',{name:'登录'}).click();await expect(page.getByRole('heading',{name:'总览'})).toBeVisible()
-  await page.goto('/persona'); await expect(page.getByRole('heading',{name:'人格'})).toBeVisible(); await expect(page.getByText('定义机器人是谁，以及表达风格。')).toBeVisible()
-  const persona=page.getByLabel('人格');const initialPersona=await persona.inputValue();await persona.fill(`${initialPersona}\nPersona E2E v2`);await expect(page.getByText('未保存更改',{exact:true})).toBeVisible();await page.getByRole('button',{name:'保存为新版本并启用'}).click();await expect(page.locator('.notice')).toContainText('已创建并启用新版本')
-  await expect(page.locator('.status-pill')).toContainText('当前版本 v2');await expect(page.getByRole('button',{name:'版本 v1'})).toBeVisible();await page.getByRole('button',{name:'与当前比较'}).last().click();await expect(page.getByLabel('逐行版本差异')).toContainText('Persona E2E v2');
-  await page.getByRole('button',{name:'版本 v1'}).click();await expect(page.getByRole('heading',{name:'版本预览 · v1'})).toBeVisible();await page.getByRole('button',{name:'回滚到此内容'}).click();const rollback=page.getByRole('dialog');await expect(rollback).toContainText('目标历史版本 v1');await rollback.getByRole('button',{name:'创建回滚版本'}).click();await expect(page.locator('.status-pill')).toContainText('当前版本 v3');await page.reload();await expect(page.locator('.status-pill')).toContainText('当前版本 v3');
-  await page.goto('/simulation');await expect(page.getByRole('heading',{name:'行为模拟提示词'})).toBeVisible();await expect(page.getByText('定义机器人在社交环境中如何行动。')).toBeVisible();const simulation=page.getByLabel('行为模拟提示词');await simulation.fill(`${await simulation.inputValue()}\nSimulation E2E v2`);await page.getByRole('button',{name:'保存为新版本并启用'}).click();await expect(page.locator('.status-pill')).toContainText('当前版本 v2');await page.getByRole('button',{name:'与当前比较'}).last().click();await expect(page.getByLabel('逐行版本差异')).toContainText('Simulation E2E v2');await page.getByRole('button',{name:'版本 v1'}).click();await page.getByRole('button',{name:'回滚到此内容'}).click();await page.getByRole('dialog').getByRole('button',{name:'创建回滚版本'}).click();await expect(page.locator('.status-pill')).toContainText('当前版本 v3');
-  await page.getByLabel('语言').selectOption('en-US');await page.setViewportSize({width:375,height:812});await page.reload();await expect(page.getByRole('heading',{name:'Simulation prompt'})).toBeVisible();await expect(page.locator('.prompt-editor')).toBeVisible();await page.getByRole('button',{name:'Compare with active'}).last().click();await expect(page.locator('.prompt-diff')).toBeVisible();expect(await page.evaluate(()=>JSON.stringify(localStorage))).not.toContain('Simulation E2E v2');expect(await page.evaluate(()=>JSON.stringify(sessionStorage))).not.toContain('Simulation E2E v2');await page.getByRole('button',{name:'Version v2'}).click();await expect(page.getByRole('heading',{name:/Version preview · v2/})).toBeVisible();await page.getByRole('button',{name:'Rollback to this content'}).click();await page.getByRole('dialog').getByRole('button',{name:'Create rollback version'}).click();await expect(page.locator('.status-pill')).toContainText('Active v4');
-  await page.goto('/persona');await expect(page.getByRole('heading',{name:'Persona',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Hard Security Policy (read-only)'})).toBeVisible();await expect(page.getByText('Hard Security Policy is fixed by the trusted system and cannot be overridden by Persona or Simulation.')).toBeVisible();
+  await page.goto('/persona');await expect(page.getByRole('heading',{name:'人格（Persona）',level:1})).toBeVisible();await expect(page.getByText('Core 内建 · 只读').first()).toBeVisible();await expect(page.getByText('Legacy Recovered')).toBeVisible();await expect(page.getByText('01a694ed6be58e2c8c92a7db5a288f615c30aa222f2f7d10cace3af3ba262cad')).toBeVisible();await expect(page.locator('.prompt-preview').first()).not.toBeEmpty();await expect(page.locator('textarea')).toHaveCount(0);await expect(page.getByRole('button',{name:/保存|回滚/})).toHaveCount(0)
+  await expect(page.getByText('旧数据库版本仅保留为历史证据。')).toBeVisible()
+  await page.goto('/simulation');await expect(page.getByRole('heading',{name:'仿真规则（Simulation）',level:1})).toBeVisible();await expect(page.getByText('Core 内建 · 只读').first()).toBeVisible();await expect(page.getByText('')).toBeVisible();await expect(page.locator('textarea')).toHaveCount(0);await expect(page.getByRole('button',{name:/保存|回滚/})).toHaveCount(0)
+  await page.getByLabel('语言').selectOption('en-US');await page.setViewportSize({width:375,height:812});await page.reload();await expect(page.getByRole('heading',{name:'Simulation',level:1})).toBeVisible();await expect(page.locator('textarea')).toHaveCount(0);await expect(page.getByText('Hard Security Policy (read-only)')).toBeVisible()
   await openMobileNavigation(page,'en-US');await page.getByRole('button',{name:'Sign out'}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Confirm'}).click();await expect(page).toHaveURL(/\/login$/);expect((await page.request.get('/api/prompts/PERSONA/current')).status()).toBe(401);expect((await page.request.get('/api/prompts/security')).status()).toBe(401)
-})
-
-test('prompt optimistic conflict never silently replaces the active version', async ({ page }) => {
-  await page.goto('/login');await page.getByLabel('管理员账号').fill(username);await page.getByLabel('密码').fill(password);await page.getByRole('button',{name:'登录'}).click();await expect(page.getByRole('heading',{name:'总览'})).toBeVisible();await page.goto('/persona');await expect(page.getByRole('heading',{name:'人格'})).toBeVisible()
-  await page.route('**/api/prompts/PERSONA/versions',route=>route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({code:'STATE_CONFLICT',message:'Prompt changed'})}))
-  const editor=page.getByLabel('人格');await editor.fill(`${await editor.inputValue()}\nconflicting draft`);await page.getByRole('button',{name:'保存为新版本并启用'}).click();await expect(page.getByRole('alert')).toContainText('提示词已在其他位置更新');await expect(editor).toHaveValue(/conflicting draft/);await expect(page.getByText('未保存更改',{exact:true})).toBeVisible()
 })
 
 test('social settings overrides and fake model management are secret-safe, persistent and responsive', async ({ page }) => {
@@ -474,15 +464,15 @@ test('social settings overrides and fake model management are secret-safe, persi
 
   await page.goto(`/social-settings?conversation=${conversation}`)
   await expect(page.getByRole('heading', { name: '社交设置' })).toBeVisible()
-  await expect(page.getByText(/群聊消息先通过访问权限检查/)).toBeVisible()
-  const probability = page.getByRole('spinbutton').first()
-  await probability.fill('35')
+  await expect(page.getByText(/当前 reserved2 runtime 没有主动发言调度器/)).toBeVisible()
+  const probability = page.getByRole('spinbutton', { name: '普通消息参与概率' })
+  await probability.fill('0.35')
   await page.getByRole('button', { name: '保存全局设置' }).click()
   await expect(page.getByRole('status')).toContainText('设置已保存')
-  const mentionRow = page.locator('.social-override-row').filter({ hasText: '被 @ 时回复' })
+  const mentionRow = page.locator('.social-override-row').filter({ hasText: '被提及时唤醒' })
   await mentionRow.getByRole('combobox').selectOption('false')
   await page.getByRole('button', { name: '保存会话覆盖' }).click()
-  await expect(mentionRow).toContainText(/生效值: 否/)
+  await expect(mentionRow).toContainText('生效值: 否')
   let effective = await page.request.get(`/api/social-settings/conversations/${conversation}`)
   expect((await effective.json()).effective).toMatchObject({ mentionWake: false, ordinaryMessageProbability: 0.35 })
 
@@ -496,11 +486,11 @@ test('social settings overrides and fake model management are secret-safe, persi
   await expect(page.getByRole('status')).toContainText('已在其他位置修改')
   await page.unrouteAll()
   await page.getByRole('button', { name: '清除全部覆盖' }).click()
-  await expect(page.locator('.social-override-row').filter({ hasText: '被 @ 时回复' })).toContainText(/生效值: 是/)
+  await expect(page.locator('.social-override-row').filter({ hasText: '被提及时唤醒' })).toContainText('生效值: 是')
   effective = await page.request.get(`/api/social-settings/conversations/${conversation}`)
   expect((await effective.json()).overrides).toEqual({})
   await page.reload()
-  await expect(page.getByRole('spinbutton').first()).toHaveValue('35')
+  await expect(page.getByRole('spinbutton', { name: '普通消息参与概率' })).toHaveValue('0.35')
 
   await page.goto('/models')
   await expect(page.getByRole('heading', { name: '模型管理' })).toBeVisible()

@@ -46,9 +46,8 @@ public class RuntimeGraphConfiguration {
     @Bean public RelationshipTermRegistry relationshipTermRegistry(RelationshipTermRepository repository) { return new RelationshipTermRegistry(repository); }
     @Bean public IdentityResolver identityResolver(IdentityRegistry identities,AddressResolver addresses,RelationshipTermRegistry terms,XingChenProperties p) { return new IdentityResolver(identities,addresses,terms,p.onebot().loginUserId()); }
     @Bean public PromptSections promptSections(@Value("${xingchen.prompt.profile-id:8f3e9d9f-77d9-5d99-9cb4-f1eea5678abc}") UUID profile,
-            @Value("${xingchen.prompt.simulation-version:1}") int simulationVersion,@Value("${xingchen.prompt.persona-version:1}") int personaVersion,
-            @Value("${xingchen.prompt.simulation:}") String simulation,@Value("${xingchen.prompt.persona:}") String persona) {
-        return new PromptSections(profile,simulationVersion,personaVersion,simulation,persona);
+            online.wanan.xingchen.core.prompt.PromptBaselineService baseline) {
+        return new PromptSections(profile,1,1,baseline.loadSimulation(),baseline.loadPersona());
     }
     @Bean public ConversationWindow conversationWindow() { return new ConversationWindow(); }
     @Bean public MockSummaryProvider sessionSummaryProvider() { return new MockSummaryProvider(); }

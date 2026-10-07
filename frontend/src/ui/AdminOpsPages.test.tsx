@@ -53,9 +53,9 @@ describe('safe operational console states',()=>{
   expect(await screen.findByText(/QQ 群号：group-123/)).toBeInTheDocument()
   expect(screen.getByText(/来源：admin/)).toBeInTheDocument()
   fireEvent.change(screen.getByLabelText('规则适用范围'),{target:{value:'GROUP'}})
-  expect(screen.getByLabelText(/QQ 群号（群聊 ID）/)).toHaveAttribute('placeholder','例如：987654321')
+  expect(screen.getByLabelText(/QQ 群号（群聊 ID）/)).toHaveAttribute('placeholder','例如：100000008')
   fireEvent.change(screen.getByLabelText('规则适用范围'),{target:{value:'PRIVATE'}})
-  expect(screen.getByLabelText(/QQ 用户号（用户 ID）/)).toHaveAttribute('placeholder','例如：123456789')
+  expect(screen.getByLabelText(/QQ 用户号（用户 ID）/)).toHaveAttribute('placeholder','例如：100000001')
   expect(screen.getByRole('heading',{name:'所有者（恢复配置）'})).toBeInTheDocument()
  })
  it('Password mismatch is associated with fields and never submitted',async()=>{

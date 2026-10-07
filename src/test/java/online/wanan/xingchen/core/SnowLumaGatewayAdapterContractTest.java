@@ -16,7 +16,7 @@ class SnowLumaGatewayAdapterContractTest {
             assertThat(adapter.getStatus().state()).isEqualTo(GatewayState.DISCONNECTED);
             assertThat(adapter.capabilities().qrLogin()).isFalse();assertThat(adapter.capabilities().logout()).isFalse();assertThat(adapter.capabilities().reconnect()).isFalse();
             assertThat(onebot.connect().connected()).isTrue();assertThat(adapter.getStatus().state()).isEqualTo(GatewayState.CONNECTED);
-            assertThat(adapter.getAccountInfo()).get().extracting("userId").isEqualTo("123456789");
+            assertThat(adapter.getAccountInfo()).get().extracting("userId").isEqualTo("100000001");
             assertThat(fake.actionCount("get_login_info")).isEqualTo(1);
         }
     }

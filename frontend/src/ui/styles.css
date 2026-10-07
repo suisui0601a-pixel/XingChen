@@ -207,6 +207,7 @@ input:hover,select:hover { border-color:color-mix(in srgb,var(--accent) 45%,var(
 @media(max-width:600px){.people-memory-page .console-filters,.people-memory-page .console-filters label{width:100%;}.people-memory-page .console-filters .button{width:100%;}.people-memory-page .console-row{display:grid;grid-template-columns:1fr;}}
 .prompt-page { max-width: 1120px; }
 .prompt-page .page-heading > div > p:last-child { max-width: 70ch; color: var(--muted); }
+.prompt-baseline-meta code { overflow-wrap: anywhere; }
 .prompt-editor, .prompt-preview { width: 100%; min-height: 22rem; box-sizing: border-box; font: 0.94rem/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .prompt-preview { display: block; max-height: 34rem; overflow: auto; padding: 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
 .security-preview { min-height: 0; }

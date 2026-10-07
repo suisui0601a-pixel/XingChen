@@ -12,6 +12,7 @@ import online.wanan.xingchen.core.model.ConversationIdentity;
 import online.wanan.xingchen.core.model.ConversationType;
 import online.wanan.xingchen.storage.DurableTurnExecutionStore;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Order;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -26,6 +27,7 @@ import java.util.function.BooleanSupplier;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Full local Fake OneBot → SocialRuntime → SQLite stress evidence; no external adapters are enabled. */
+@Order(2)
 class SocialRuntimeStressE2ETest {
     @Test void r2stress001_sameConversationTwentyFourMixedEventsDrainExactlyOnce() throws Exception {
         Path db=TestSqliteDatabase.create("r2stress-same-conversation");String url=TestSqliteDatabase.jdbcUrl(db);
@@ -79,6 +81,7 @@ class SocialRuntimeStressE2ETest {
     }
 
     @Test void r2stress002_003_fiveConversationRuntimeParallelismWithBlockedModelAndTool() throws Exception {
+        FakeOneBotServer.assertNoPriorRuntimeThreadsExecutingAcrossClassBoundary();
         Path db=TestSqliteDatabase.create("r2stress-five-conversations");String url=TestSqliteDatabase.jdbcUrl(db);
         try(ConfigurableApplicationContext context=start(url)){
             var runtime=context.getBean(SocialRuntime.class);var fake=context.getBean(FakeOneBotServer.class);var provider=context.getBean(MockModelProvider.class);var observer=context.getBean(TestTurnBoundaryObserver.class);var identities=context.getBean(IdentityRegistry.class);var jdbc=context.getBean(JdbcTemplate.class);
@@ -136,7 +139,7 @@ class SocialRuntimeStressE2ETest {
     private static void assertMonotonic(JdbcTemplate jdbc,UUID conversation){var rows=jdbc.query("SELECT generation,cursor FROM stress_generation_audit WHERE conversation_id=? ORDER BY seq",(rs,n)->new AuditPoint(rs.getLong(1),rs.getString(2)),conversation.toString());for(int i=1;i<rows.size();i++)assertThat(rows.get(i).generation()).as("generation monotonic for "+conversation).isGreaterThan(rows.get(i-1).generation());String previous=null;for(var row:rows)if(row.cursor()!=null){if(previous!=null)assertThat(Long.parseLong(row.cursor())).as("read cursor monotonic for "+conversation).isGreaterThanOrEqualTo(Long.parseLong(previous));previous=row.cursor();}}
     private record AuditPoint(long generation,String cursor){}
     private static String message(long id,int sequence,String group,String actor,String text){return payload(id,group,sequence,"ordinary").replace("ordinary",""+text);}
-    private static String payload(long id,String group,int sequence,String kind){String actor=kind.equals("manual")?"owner-test":kind.equals("speaker")?"speaker-x":"user-"+group;long time=1_800_000_000L+sequence;return switch(kind){case "poke"->"{\"post_type\":\"notice\",\"notice_type\":\"notify\",\"sub_type\":\"poke\",\"message_type\":\"group\",\"self_id\":\"test-bot\",\"user_id\":\""+actor+"\",\"group_id\":\""+group+"\",\"target_id\":\"test-bot\",\"time\":"+time+",\"message_id\":\""+id+"\",\"message_seq\":"+sequence+"}";default->{String segments=switch(kind){case "mention-question"->"{\"type\":\"at\",\"data\":{\"qq\":\"test-bot\"}},{\"type\":\"text\",\"data\":{\"text\":\"why?\"}}";case "mention"->"{\"type\":\"at\",\"data\":{\"qq\":\"test-bot\"}},{\"type\":\"text\",\"data\":{\"text\":\"please reply\"}}";case "reply"->"{\"type\":\"reply\",\"data\":{\"id\":\"bot-1\",\"user_id\":\"test-bot\",\"nickname\":\"Bot\"}},{\"type\":\"text\",\"data\":{\"text\":\"follow up\"}}";case "name"->"{\"type\":\"text\",\"data\":{\"text\":\"大肥鱼在吗\"}}";case "question"->"{\"type\":\"text\",\"data\":{\"text\":\"question?\"}}";case "manual"->"{\"type\":\"text\",\"data\":{\"text\":\"/wake\"}}";case "keyword"->"{\"type\":\"text\",\"data\":{\"text\":\"stress-keyword please\"}}";default->"{\"type\":\"text\",\"data\":{\"text\":\"ordinary\"}}";};yield "{\"post_type\":\"message\",\"message_type\":\"group\",\"self_id\":\"test-bot\",\"user_id\":\""+actor+"\",\"group_id\":\""+group+"\",\"time\":"+time+",\"message_id\":\""+id+"\",\"message_seq\":"+sequence+",\"sender\":{\"user_id\":\""+actor+"\",\"nickname\":\"same\",\"card\":\"\",\"role\":\"member\"},\"message\":["+segments+"]}";}};}
+    private static String payload(long id,String group,int sequence,String kind){String actor=kind.equals("manual")?"owner-test":kind.equals("speaker")?"speaker-x":"user-"+group;long time=1_800_000_000L+sequence;return switch(kind){case "poke"->"{\"post_type\":\"notice\",\"notice_type\":\"notify\",\"sub_type\":\"poke\",\"message_type\":\"group\",\"self_id\":\"test-bot\",\"user_id\":\""+actor+"\",\"group_id\":\""+group+"\",\"target_id\":\"test-bot\",\"time\":"+time+",\"message_id\":\""+id+"\",\"message_seq\":"+sequence+"}";default->{String segments=switch(kind){case "mention-question"->"{\"type\":\"at\",\"data\":{\"qq\":\"test-bot\"}},{\"type\":\"text\",\"data\":{\"text\":\"why?\"}}";case "mention"->"{\"type\":\"at\",\"data\":{\"qq\":\"test-bot\"}},{\"type\":\"text\",\"data\":{\"text\":\"please reply\"}}";case "reply"->"{\"type\":\"reply\",\"data\":{\"id\":\"bot-1\",\"user_id\":\"test-bot\",\"nickname\":\"Bot\"}},{\"type\":\"text\",\"data\":{\"text\":\"follow up\"}}";case "name"->"{\"type\":\"text\",\"data\":{\"text\":\"SyntheticBot在吗\"}}";case "question"->"{\"type\":\"text\",\"data\":{\"text\":\"question?\"}}";case "manual"->"{\"type\":\"text\",\"data\":{\"text\":\"/wake\"}}";case "keyword"->"{\"type\":\"text\",\"data\":{\"text\":\"stress-keyword please\"}}";default->"{\"type\":\"text\",\"data\":{\"text\":\"ordinary\"}}";};yield "{\"post_type\":\"message\",\"message_type\":\"group\",\"self_id\":\"test-bot\",\"user_id\":\""+actor+"\",\"group_id\":\""+group+"\",\"time\":"+time+",\"message_id\":\""+id+"\",\"message_seq\":"+sequence+",\"sender\":{\"user_id\":\""+actor+"\",\"nickname\":\"same\",\"card\":\"\",\"role\":\"member\"},\"message\":["+segments+"]}";}};}
     private static ModelResponse toolResponse(ModelToolCall call){return new ModelResponse(null,null,null,List.of(call),ModelFinishReason.TOOL_CALLS);}
     private static ModelResponse noReply(){return new ModelResponse(AgentDecision.noReply(),usage(),null);}
     private static ModelResponse waitDecision(){return new ModelResponse(AgentDecision.waitForNextMessage(),usage(),null);}

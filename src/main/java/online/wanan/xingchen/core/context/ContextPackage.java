@@ -20,7 +20,7 @@ public record ContextPackage(String persona, String simulationPrompt, String act
     public String renderSections(){
         String memoryText=memories.stream().map(Memory::content).reduce((a,b)->a+"\n"+b).orElse("");
         String taskText=taskState.entrySet().stream().map(e->e.getKey()+"="+e.getValue()).reduce((a,b)->a+"\n"+b).orElse("");
-        return "[Simulation Prompt]\n"+simulationPrompt+"\n[Persona Prompt]\n"+persona+"\n[Identity]\n"+identityBlock+
+        return "[Identity]\n"+identityBlock+"\n[Persona Prompt]\n"+persona+"\n[Simulation Prompt]\n"+simulationPrompt+
                 "\n[Relationship]\n"+relationshipBlock+"\n[Relevant Memories]\n"+memoryText+"\n[Conversation Summary]\n"+conversationSummary+"\n[Task State]\n"+taskText+
                 "\n[Agent Tools]\n"+toolDescription+"\n[Tool Results]\n"+String.join("\n",toolResults)+"\n[Recent Messages]\n"+String.join("\n",recentMessages)+"\n[Current Message]\n"+currentMessage;
     }

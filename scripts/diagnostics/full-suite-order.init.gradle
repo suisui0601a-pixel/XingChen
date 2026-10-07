@@ -1,0 +1,46 @@
+import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestListener
+import org.gradle.api.tasks.testing.TestResult
+
+import java.util.concurrent.atomic.AtomicLong
+
+gradle.projectsEvaluated {
+    allprojects {
+        tasks.withType(Test).configureEach {
+            def configuredTracePath = System.getenv('XINGCHEN_TEST_ORDER_FILE')
+            if (!configuredTracePath) return
+
+            def traceFile = new File(configuredTracePath)
+            def traceSequence = new AtomicLong()
+            def traceLock = new Object()
+            def safe = { value -> String.valueOf(value ?: 'unknown').replace('|', '/').replace('\n', ' ').replace('\r', ' ') }
+            def record = { event, descriptor, result ->
+                synchronized (traceLock) {
+                    traceFile.parentFile.mkdirs()
+                    long sequence = traceSequence.incrementAndGet()
+                    String className = safe(descriptor.className)
+                    String testName = safe(descriptor.name)
+                    String resultName = result == null ? '-' : safe(result.resultType)
+                    String descriptorId = safe(descriptor.id)
+                    String eventThread = safe(Thread.currentThread().name)
+                    traceFile.append("TRACE|${sequence}|${event}|${resultName}|${className}#${testName}|id=${descriptorId}|eventThread=${eventThread}${System.lineSeparator()}", 'UTF-8')
+                }
+            }
+
+            doFirst {
+                synchronized (traceLock) {
+                    traceFile.parentFile.mkdirs()
+                    traceFile.append("CONFIG|task=${path}|maxParallelForks=${maxParallelForks}|forkEvery=${forkEvery}|junitParallel=default-disabled-unless-explicitly-configured${System.lineSeparator()}", 'UTF-8')
+                }
+            }
+
+            addTestListener(new TestListener() {
+                void beforeSuite(TestDescriptor descriptor) {}
+                void afterSuite(TestDescriptor descriptor, TestResult result) {}
+                void beforeTest(TestDescriptor descriptor) { record.call('START', descriptor, null) }
+                void afterTest(TestDescriptor descriptor, TestResult result) { record.call('FINISH', descriptor, result) }
+            })
+        }
+    }
+}

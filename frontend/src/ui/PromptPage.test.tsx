@@ -1,31 +1,38 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PromptPage } from './PromptPage'
-import { ApiError } from './api'
 
 const { api } = vi.hoisted(() => ({ api: vi.fn() }))
 vi.mock('./api', async importOriginal => ({...await importOriginal<typeof import('./api')>(), api }))
-const old={id:'v1',layer:'PERSONA',version:1,content:'你是大肥鱼',createdAt:'2026-10-01T00:00:00Z',createdBy:'admin',note:'',estimatedTokens:4,active:false}
-const current={...old,id:'v2',version:2,content:'你是温柔的大肥鱼',active:true,revision:2}
-const history={items:[{...current,content:undefined},{...old,content:undefined}],page:0,size:20,total:2}
-const composition={precedence:[{layer:'HARD_SECURITY',label:'Hard Security Policy',version:'built-in',estimatedTokens:30},{layer:'SIMULATION',label:'Simulation Prompt',version:1,estimatedTokens:2},{layer:'PERSONA',label:'Persona Prompt',version:2,estimatedTokens:4},{layer:'RUNTIME',label:'Identity / Relationship / Memory / Runtime Context'},{layer:'USER',label:'User Message'}]}
+const persona={id:'BUILT_IN:persona',layer:'PERSONA',version:'BUILT_IN',content:'You are a synthetic CI persona.',sha256:'01a694ed6be58e2c8c92a7db5a288f615c30aa222f2f7d10cace3af3ba262cad',chars:31,estimatedTokens:8,source:'BUILT_IN',mutable:false}
+const simulation={id:'BUILT_IN:simulation',layer:'SIMULATION',version:'BUILT_IN',content:'Synthetic CI simulation rules.',sha256:'',chars:30,estimatedTokens:6,source:'BUILT_IN',mutable:false}
+const history={items:[{id:'old-v1',version:1,createdAt:'2026-10-01T00:00:00Z',createdBy:'admin',note:'old',checksum:'legacy-hash',estimatedTokens:4,active:false,legacyActive:true,source:'LEGACY_DATABASE_HISTORY'}],page:0,size:20,total:1}
+const composition={precedence:[{layer:'HARD_SECURITY',label:'Hard Security Policy',version:'built-in'},{layer:'IDENTITY',label:'Identity'},{layer:'PERSONA',label:'Built-in Persona',version:'BUILT_IN',source:'BUILT_IN',sha256:persona.sha256},{layer:'SIMULATION',label:'Built-in Simulation',version:'BUILT_IN',source:'BUILT_IN',sha256:simulation.sha256},{layer:'RELATIONSHIP',label:'Relationship'},{layer:'MEMORY',label:'Memory'},{layer:'RUNTIME',label:'Runtime Context'}]}
 const security={readOnly:true,version:'built-in',summary:'Trusted system policy',content:'Server-side checks are authoritative.'}
-function replies(){api.mockImplementation(async(path:string,options?:RequestInit)=>{if(path.endsWith('/current'))return {...current};if(path.endsWith('/history?page=0&size=20'))return history;if(path.includes('/composition'))return composition;if(path.endsWith('/security'))return security;if(path.endsWith('/versions/v1'))return old;if(path.endsWith('/versions/v2'))return current;if(options?.method==='POST'&&path.endsWith('/versions'))return current;return {}})}
-beforeEach(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','')};HTMLDialogElement.prototype.close=function(){this.removeAttribute('open')}})
+function replies(){api.mockImplementation(async(path:string)=>{if(path.endsWith('/PERSONA/current'))return persona;if(path.endsWith('/SIMULATION/current'))return simulation;if(path.endsWith('/history?page=0&size=20'))return history;if(path.includes('/composition'))return composition;if(path.endsWith('/security'))return security;return {}})}
 afterEach(()=>{cleanup();api.mockReset();vi.restoreAllMocks()})
 
-describe('prompt administration page',()=>{
-  it('keeps Persona separate, shows active history and sends a versioned save without browser persistence',async()=>{
-    replies();const {container}=render(<PromptPage layer="PERSONA" language="zh-CN"/>);expect(await screen.findByRole('heading',{name:'人格'})).toBeInTheDocument();await waitFor(()=>expect(container.querySelector('.status-pill')).toHaveTextContent('当前版本 v2'));
-    const editor=screen.getByLabelText('人格');fireEvent.change(editor,{target:{value:'persona draft'}});expect(screen.getByRole('status')).toHaveTextContent('未保存更改');fireEvent.change(screen.getByLabelText('版本备注（可选）'),{target:{value:'语气调整'}});fireEvent.click(screen.getByRole('button',{name:'保存为新版本并启用'}));
-    await waitFor(()=>expect(api).toHaveBeenCalledWith('/api/prompts/PERSONA/versions',expect.objectContaining({method:'POST',body:JSON.stringify({content:'persona draft',note:'语气调整',expectedActiveVersionId:'v2'})})));expect(container.querySelectorAll('textarea')).toHaveLength(1);expect(localStorage.getItem('persona draft')).toBeNull();
+describe('immutable prompt baseline page',()=>{
+  it('shows recovered Persona as read-only and preserves legacy records as history only',async()=>{
+    replies();render(<PromptPage layer="PERSONA" language="zh-CN"/>);
+    expect(await screen.findByRole('heading',{name:'人格（Persona）',level:1})).toBeInTheDocument()
+    expect(screen.getAllByText('Core 内建 · 只读')).toHaveLength(2);expect(screen.getByText('Legacy Recovered')).toBeInTheDocument()
+    expect(screen.getByText(persona.sha256)).toBeInTheDocument();expect(screen.getByText('You are a synthetic CI persona.')).toBeInTheDocument()
+    expect(screen.getByText(/旧数据库版本仅保留为历史证据/)).toBeInTheDocument();expect(screen.getByText(/v1 · 2026-10-01/)).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:/保存|回滚|rollback/i})).not.toBeInTheDocument()
   })
-  it('reports optimistic conflicts without replacing the draft and renders a textual diff',async()=>{
-    let currentReads=0;const latest={...current,id:'v3',version:3,content:'server latest prompt',active:true};replies();api.mockImplementation(async(path:string,options?:RequestInit)=>{if(path.endsWith('/current'))return ++currentReads===1?current:latest;if(path.endsWith('/history?page=0&size=20'))return history;if(path.includes('/composition'))return composition;if(path.endsWith('/security'))return security;if(path.includes('/versions/'))return path.endsWith('v1')?old:path.endsWith('v3')?latest:current;if(options?.method==='POST')throw new ApiError(409,'STATE_CONFLICT','conflict');return {}})
-    render(<PromptPage layer="PERSONA" language="zh-CN"/>);await screen.findByRole('heading',{name:'人格'});fireEvent.change(screen.getByLabelText('人格'),{target:{value:'unsaved wording'}});fireEvent.click(screen.getByRole('button',{name:'保存为新版本并启用'}));expect(await screen.findByRole('alert')).toHaveTextContent('提示词已在其他位置更新');expect(screen.getByLabelText('人格')).toHaveValue('unsaved wording');
-    fireEvent.click(screen.getByRole('button',{name:'查看最新版本差异'}));expect(await screen.findByLabelText('逐行版本差异')).toBeInTheDocument();expect(screen.getByText('server latest prompt')).toBeInTheDocument();expect(screen.getAllByText('你是温柔的大肥鱼')).toHaveLength(2);
+
+  it('shows Simulation as an independent immutable Core resource',async()=>{
+    replies();render(<PromptPage layer="SIMULATION" language="en-US"/>);
+    expect(await screen.findByRole('heading',{name:'Simulation',level:1})).toBeInTheDocument()
+    expect(screen.getByText('Built into Core')).toBeInTheDocument();expect(screen.getByText(simulation.sha256)).toBeInTheDocument()
+    expect(screen.getByText('Current Simulation')).toBeInTheDocument();expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
-  it('uses native rollback confirmation and exposes the immutable security policy as read-only text',async()=>{
-    replies();render(<PromptPage layer="PERSONA" language="en-US"/>);await screen.findByRole('heading',{name:'Persona'});expect(screen.getByText('Server-side checks are authoritative.')).toBeInTheDocument();expect(screen.getByLabelText('Persona')).toHaveAttribute('maxLength','30000');fireEvent.click(screen.getAllByRole('button',{name:'Preview / rollback'})[0]);expect(await screen.findByRole('heading',{name:/Version preview/})).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Rollback to this content'}));const dialog=document.getElementById('prompt-rollback-dialog')!;expect(dialog).toHaveAttribute('open');expect(dialog).toHaveTextContent('keeps later history');fireEvent.click(screen.getByRole('button',{name:'Cancel'}));expect(dialog).not.toHaveAttribute('open');
+
+  it('displays the prompt order and read-only Hard Security Policy',async()=>{
+    replies();render(<PromptPage layer="PERSONA" language="en-US"/>);
+    expect(await screen.findByText('Identity')).toBeInTheDocument();expect(screen.getByText('Built-in Persona')).toBeInTheDocument();
+    expect(screen.getByText('Relationship')).toBeInTheDocument();expect(screen.getByText('Memory')).toBeInTheDocument()
+    expect(screen.getByText('Server-side checks are authoritative.')).toBeInTheDocument()
   })
 })

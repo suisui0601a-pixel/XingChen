@@ -9,6 +9,7 @@ import online.wanan.xingchen.core.TestSqliteDatabase;
 import online.wanan.xingchen.core.agent.DshInteractionCoordinator;
 import online.wanan.xingchen.core.conversation.SocialRuntime;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(ProductionRuntimeSocialWithoutDshTest.FakeOneBotConfiguration.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Order(1)
 class ProductionRuntimeSocialWithoutDshTest {
     private static final Path DB = TestSqliteDatabase.create("production-social-without-dsh");
     private static final Path DATA = createDataDirectory();
@@ -67,6 +69,7 @@ class ProductionRuntimeSocialWithoutDshTest {
     @Autowired JdbcTemplate jdbc;
 
     @Test void dshOffDoesNotBlockProductionSocialOneBotAndModelBeans() throws Exception {
+        System.out.println("THREAD_LIFETIME_CLASS|production|pid="+ProcessHandle.current().pid());
         await(() -> FAKE.wsConnections() > 0, 5_000);
         assertThat(switches).isEqualTo(new RuntimeIntegrationStatus(false, true, true, true));
         assertThat(social.isRunning()).isTrue();
