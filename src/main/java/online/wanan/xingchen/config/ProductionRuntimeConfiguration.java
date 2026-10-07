@@ -51,8 +51,9 @@ public class ProductionRuntimeConfiguration {
         return new DshRc2Configuration(java.net.URI.create(p.dsh().baseUrl()),Path.of(workspace).toAbsolutePath(),storedConfig.dshLaunchToken(),provider,Duration.ofSeconds(10));
     }
     @Bean(destroyMethod="close") public DshGateway dshGateway(DshRc2Configuration config,ObjectMapper mapper,RuntimeIntegrationStatus switches) { return new DshRc2Adapter(config,mapper,switches::dshEnabled); }
-    @Bean public ApplicationRunner integrationStartup(RuntimeIntegrationStatus switches,OneBotGateway oneBot,
+    @Bean public RuntimeIntegrationStartup runtimeIntegrationStartup() { return new RuntimeIntegrationStartup(); }
+    @Bean public ApplicationRunner integrationStartup(RuntimeIntegrationStatus switches,RuntimeIntegrationStartup startup,
             online.wanan.xingchen.core.conversation.SocialRuntime social,DshInteractionCoordinator interactions) {
-        return args -> { if(switches.allEnabled()){social.start();interactions.start();} };
+        return args -> startup.start(switches,social::start,interactions::start);
     }
 }

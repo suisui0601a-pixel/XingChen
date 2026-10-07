@@ -409,6 +409,13 @@ class SqliteStartupContractTest {
         assertThatThrownBy(()->service.ensureClosedAgent(groupMember(conversation),"CLOSED_AGENT","closed-agent","model-a","policy-owner",true,access)).isInstanceOf(SecurityException.class);
         service.reset(conversation);assertThat(dshMappings.current(conversation)).isNull();assertThat(remote.archived).containsExactly(first.sessionId(),next.sessionId());
     }
+    @Test void dshDisabledResetRetiresLocalMappingWithoutCallingUnavailableRuntime() {
+        UUID conversation=UUID.randomUUID();String now=Instant.now().toString();jdbc.update("INSERT INTO conversations(id,platform,type,platform_conversation_id,created_at) VALUES(?,?,?,?,?)",conversation.toString(),"QQ","PRIVATE","dsh-disabled-reset-"+conversation,now);
+        var remote=new FakeDshOperations();var service=new online.wanan.xingchen.adapter.dsh.DshSessionService(dshMappings,remote,java.time.Clock.systemUTC());
+        service.ensureClosedAgent(closedOwner(conversation),"CLOSED_AGENT","qq-chat","model-a","policy-a",true,new online.wanan.xingchen.core.agent.ClosedAgentAccessPolicy());
+        remote.enabled=false;service.reset(conversation);
+        assertThat(dshMappings.current(conversation)).isNull();assertThat(remote.stopped).isEmpty();assertThat(remote.archived).isEmpty();
+    }
     @Test void reset101_shortContextResetRetiresSessionButPreservesLongTermMemory() {
         UUID conversation=UUID.randomUUID(),memory=UUID.randomUUID();String now=Instant.now().toString();jdbc.update("INSERT INTO conversations(id,platform,type,platform_conversation_id,created_at) VALUES(?,?,?,?,?)",conversation.toString(),"QQ","PRIVATE","reset-"+conversation,now);
         var remote=new FakeDshOperations();var sessionService=new online.wanan.xingchen.adapter.dsh.DshSessionService(dshMappings,remote,java.time.Clock.systemUTC());var session=sessionService.ensureClosedAgent(closedOwner(conversation),"CLOSED_AGENT","qq-chat","model-a","policy-a",true,new online.wanan.xingchen.core.agent.ClosedAgentAccessPolicy());
@@ -421,7 +428,7 @@ class SqliteStartupContractTest {
         assertThat(dshMappings.current(conversation)).isNull();assertThat(simulation.get(conversation).generation()).isEqualTo(1);assertThat(window.get(conversation.toString())).isEmpty();assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM conversation_summaries WHERE conversation_id=?",Integer.class,conversation.toString())).isZero();assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM session_handoffs WHERE conversation_id=?",Integer.class,conversation.toString())).isZero();assertThat(jdbc.queryForObject("SELECT current_summary_id FROM session_state WHERE conversation_id=?",String.class,conversation.toString())).isNull();assertThat(jdbc.queryForObject("SELECT content FROM memories WHERE id=?",String.class,memory.toString())).isEqualTo("keep this long-term");assertThat(jdbc.queryForObject("SELECT value FROM relationship_terms WHERE subject_person_id=? AND target_person_id=?",String.class,bot.toString(),person.toString())).isEqualTo("姐姐");assertThat(remote.stopped).containsExactly(session.sessionId());assertThat(remote.archived).containsExactly(session.sessionId());
     }
     private static final class FakeDshOperations implements online.wanan.xingchen.adapter.dsh.DshSessionOperations {
-        int next;final List<String> stopped=new ArrayList<>(),archived=new ArrayList<>();public String findOrCreateWorkspace(String key){return "workspace";}public String createSession(String workspace,String mode,String preset,String model){return "session-"+(++next);}public void stop(String id){stopped.add(id);}public void archive(String id){archived.add(id);}public void prompt(String id,String text){}public void selectModel(String id,String model){}public void selectPreset(String id,String preset){}
+        int next;boolean enabled=true;final List<String> stopped=new ArrayList<>(),archived=new ArrayList<>();public boolean isEnabled(){return enabled;}public String findOrCreateWorkspace(String key){return "workspace";}public String createSession(String workspace,String mode,String preset,String model){return "session-"+(++next);}public void stop(String id){stopped.add(id);}public void archive(String id){archived.add(id);}public void prompt(String id,String text){}public void selectModel(String id,String model){}public void selectPreset(String id,String preset){}
     }
 
     private static online.wanan.xingchen.core.identity.ResolvedActorContext closedOwner(UUID id){

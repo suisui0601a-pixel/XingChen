@@ -2,6 +2,8 @@ package online.wanan.xingchen.adapter.dsh;
 
 /** Domain-facing DSH session port. It deliberately exposes no transport DTOs. */
 public interface DshGateway {
+    /** Whether calls to this gateway may dispatch to the external DSH runtime. */
+    default boolean isEnabled() { return true; }
     String findOrCreateWorkspace(String existingDirectory);
     String createSession(String workspaceId, String mode, String preset, String model);
     void prompt(String sessionId, String text);
