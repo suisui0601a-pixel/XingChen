@@ -466,7 +466,7 @@ test('social settings overrides and fake model management are secret-safe, persi
   await expect(page.getByRole('heading', { name: '社交设置' })).toBeVisible()
   await expect(page.getByText(/当前 runtime 没有主动发言调度器/)).toBeVisible()
   const probability = page.getByRole('spinbutton', { name: '随机插话概率（ordinaryMessageProbability）' })
-  await probability.fill('0.35')
+  await probability.fill('35')
   await page.getByRole('button', { name: '保存全局设置' }).click()
   await expect(page.getByRole('status')).toContainText('设置已保存')
   const mentionRow = page.locator('.social-override-row').filter({ hasText: '被 @ 时回复' })
