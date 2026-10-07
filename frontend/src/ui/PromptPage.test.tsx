@@ -5,7 +5,7 @@ import { PromptPage } from './PromptPage'
 const { api } = vi.hoisted(() => ({ api: vi.fn() }))
 vi.mock('./api', async importOriginal => ({...await importOriginal<typeof import('./api')>(), api }))
 const persona={id:'BUILT_IN:persona',layer:'PERSONA',version:'BUILT_IN',content:'You are a synthetic CI persona.',sha256:'01a694ed6be58e2c8c92a7db5a288f615c30aa222f2f7d10cace3af3ba262cad',chars:31,estimatedTokens:8,source:'BUILT_IN',mutable:false}
-const simulation={id:'BUILT_IN:simulation',layer:'SIMULATION',version:'BUILT_IN',content:'Synthetic CI simulation rules.',sha256:'',chars:30,estimatedTokens:6,source:'BUILT_IN',mutable:false}
+const simulation={id:'BUILT_IN:simulation',layer:'SIMULATION',version:'BUILT_IN',content:'Synthetic CI simulation rules.',sha256:'8a111de40876087249bf0bb9e45f82e31cf39a46391f807b99cf8810920deaa7',chars:30,estimatedTokens:6,source:'BUILT_IN',mutable:false}
 const history={items:[{id:'old-v1',version:1,createdAt:'2026-10-01T00:00:00Z',createdBy:'admin',note:'old',checksum:'legacy-hash',estimatedTokens:4,active:false,legacyActive:true,source:'LEGACY_DATABASE_HISTORY'}],page:0,size:20,total:1}
 const composition={precedence:[{layer:'HARD_SECURITY',label:'Hard Security Policy',version:'built-in'},{layer:'IDENTITY',label:'Identity'},{layer:'PERSONA',label:'Built-in Persona',version:'BUILT_IN',source:'BUILT_IN',sha256:persona.sha256},{layer:'SIMULATION',label:'Built-in Simulation',version:'BUILT_IN',source:'BUILT_IN',sha256:simulation.sha256},{layer:'RELATIONSHIP',label:'Relationship'},{layer:'MEMORY',label:'Memory'},{layer:'RUNTIME',label:'Runtime Context'}]}
 const security={readOnly:true,version:'built-in',summary:'Trusted system policy',content:'Server-side checks are authoritative.'}
