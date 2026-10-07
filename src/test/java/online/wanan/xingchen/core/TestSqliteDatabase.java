@@ -27,11 +27,17 @@ public final class TestSqliteDatabase {
     }
     private static void deleteOwnedDirectory(Path db)throws IOException{
         Path build=Path.of("build").toAbsolutePath().normalize();Path absolute=db.toAbsolutePath().normalize();Path directory=absolute.getParent();
-        if(directory==null||!absolute.startsWith(build)||!absolute.getFileName().toString().equals("test.sqlite")||!build.equals(directory.getParent())||!directory.getFileName().toString().startsWith("xingchen-"))
-            throw new IllegalStateException("refusing to clean an unowned isolated SQLite test directory");
-        try(var paths=Files.walk(directory)){
-            for(Path path:paths.sorted(java.util.Comparator.reverseOrder()).toList())deleteWithRetry(path);
+        boolean ownedBuildDirectory=directory!=null&&build.equals(directory.getParent())
+                &&(directory.getFileName().toString().startsWith("xingchen-")||directory.getFileName().toString().startsWith("dsh-restart-"))
+                &&(absolute.getFileName().toString().equals("test.sqlite")||absolute.getFileName().toString().equals("runtime.sqlite"));
+        if(ownedBuildDirectory){
+            try(var paths=Files.walk(directory)){
+                for(Path path:paths.sorted(java.util.Comparator.reverseOrder()).toList())deleteWithRetry(path);
+            }
+            return;
         }
+        deleteWithRetry(Path.of(absolute+"-wal"));deleteWithRetry(Path.of(absolute+"-shm"));deleteWithRetry(Path.of(absolute+"-journal"));deleteWithRetry(absolute);
+        if(directory!=null)try{Files.deleteIfExists(directory);}catch(java.nio.file.DirectoryNotEmptyException ignored){}
     }
     private static void deleteWithRetry(Path path)throws IOException{
         IOException last=null;
