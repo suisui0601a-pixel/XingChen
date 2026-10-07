@@ -490,7 +490,7 @@ test('social settings overrides and fake model management are secret-safe, persi
   effective = await page.request.get(`/api/social-settings/conversations/${conversation}`)
   expect((await effective.json()).overrides).toEqual({})
   await page.reload()
-  await expect(page.getByRole('spinbutton', { name: '普通消息参与概率' })).toHaveValue('0.35')
+  await expect(page.getByRole('spinbutton', { name: '随机插话概率（ordinaryMessageProbability）' })).toHaveValue('35')
 
   await page.goto('/models')
   await expect(page.getByRole('heading', { name: '模型管理' })).toBeVisible()
