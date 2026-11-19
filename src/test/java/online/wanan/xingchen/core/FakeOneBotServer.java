@@ -13,6 +13,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Loopback-only fake OneBot HTTP API plus a minimal test WebSocket endpoint. */
 public final class FakeOneBotServer implements AutoCloseable {
+    private final Map<String,JsonNode> lastRequests=new ConcurrentHashMap<>();
+    public JsonNode lastRequest(String action){return lastRequests.get(action);}
     public enum SendBehavior { SEND_SUCCESS, EXPLICIT_FAILURE, PRE_DISPATCH_FAILURE, DROP_AFTER_RECEIVE, TIMEOUT_AFTER_COMMIT }
     private static final String GUID="258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     private final HttpServer http;private final ServerSocket wsServer;private final ExecutorService executor=Executors.newCachedThreadPool();private final ObjectMapper mapper=new ObjectMapper();private final String httpToken;private final String wsToken;
@@ -33,7 +35,7 @@ public final class FakeOneBotServer implements AutoCloseable {
         if(sendBehaviors.peek()==SendBehavior.PRE_DISPATCH_FAILURE){sendBehaviors.poll();return new online.wanan.xingchen.adapter.onebot.SendReceipt(false,"private",user,"fixture-pre-dispatch-failure",online.wanan.xingchen.adapter.onebot.DeliveryStatus.REJECTED);}
         return gateway.sendPrivateMessage(user,text);
     }
-    private void handleHttp(com.sun.net.httpserver.HttpExchange x)throws IOException{String path=x.getRequestURI().getPath();String action=path.substring(path.lastIndexOf('/')+1);counts.computeIfAbsent(action,k->new AtomicInteger()).incrementAndGet();lastHttpAuthorization=x.getRequestHeaders().getFirst("Authorization");if(httpToken!=null&&!httpToken.isBlank()&&!Objects.equals(lastHttpAuthorization,"Bearer "+httpToken)){x.sendResponseHeaders(401,-1);x.close();return;}JsonNode body=mapper.readTree(x.getRequestBody());boolean sendAction=action.startsWith("send_");SendBehavior behavior=sendAction?Objects.requireNonNullElse(sendBehaviors.poll(),SendBehavior.SEND_SUCCESS):SendBehavior.SEND_SUCCESS;if(sendAction)sendReceiveCount.incrementAndGet();
+    private void handleHttp(com.sun.net.httpserver.HttpExchange x)throws IOException{String path=x.getRequestURI().getPath();String action=path.substring(path.lastIndexOf('/')+1);counts.computeIfAbsent(action,k->new AtomicInteger()).incrementAndGet();lastHttpAuthorization=x.getRequestHeaders().getFirst("Authorization");if(httpToken!=null&&!httpToken.isBlank()&&!Objects.equals(lastHttpAuthorization,"Bearer "+httpToken)){x.sendResponseHeaders(401,-1);x.close();return;}JsonNode body=mapper.readTree(x.getRequestBody());lastRequests.put(action,body);boolean sendAction=action.startsWith("send_");SendBehavior behavior=sendAction?Objects.requireNonNullElse(sendBehaviors.poll(),SendBehavior.SEND_SUCCESS):SendBehavior.SEND_SUCCESS;if(sendAction)sendReceiveCount.incrementAndGet();
         if(behavior==SendBehavior.DROP_AFTER_RECEIVE){x.close();return;}
         if(behavior==SendBehavior.EXPLICIT_FAILURE){byte[] failure=mapper.writeValueAsBytes(Map.of("status","failed","retcode",1,"message","explicit fixture rejection"));x.getResponseHeaders().add("Content-Type","application/json");x.sendResponseHeaders(200,failure.length);x.getResponseBody().write(failure);x.close();return;}
         if(sendAction&&(behavior==SendBehavior.SEND_SUCCESS||behavior==SendBehavior.TIMEOUT_AFTER_COMMIT)){appliedSendCount.incrementAndGet();appliedMessageIds.add("fake-"+actionCount(action));}

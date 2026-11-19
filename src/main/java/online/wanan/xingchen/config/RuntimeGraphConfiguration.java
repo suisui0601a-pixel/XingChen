@@ -75,7 +75,7 @@ public class RuntimeGraphConfiguration {
         return new DshInteractionCoordinator(dsh,mappings,jdbc,pending,onebot,mapper,clock,properties.owner().platformUserId());
     }
     @Bean public SocialToolExecutor socialToolExecutor(OneBotGateway gateway,AgentToolCatalog catalog,MemoryRepository memories,
-            MemoryRetriever retriever,MemoryPolicy policy,IdentityRegistry identities,RelationshipTermRegistry terms,
+            MemoryRecallPort retriever,MemoryPolicy policy,IdentityRegistry identities,RelationshipTermRegistry terms,
             XingChenProperties p,StickerService stickers,SlangService slang,Clock clock,SimulationStateService simulation,OutboundExecutionService outbound) {
         return new SocialToolExecutor(gateway,catalog,memories,retriever,policy,identities,terms,p.onebot().loginUserId(),stickers,slang,clock,simulation,outbound);
     }
@@ -86,14 +86,14 @@ public class RuntimeGraphConfiguration {
                 new ApproximateTokenEstimator(),usage,traces,ledger,boundaryObserver);
     }
     @Bean public ConversationOrchestrator conversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,
-            MemoryRetriever retriever,MemoryRepository memories,MemoryPolicy policy,ContextBuilder contexts,PromptSections prompts,
+            MemoryRecallPort retriever,MemoryRepository memories,MemoryPolicy policy,ContextBuilder contexts,PromptSections prompts,
             AgentExecutor executor,OneBotGateway gateway,ConversationWindow window,MockSummaryProvider summaries,
             SessionLifecycleManager lifecycle,ContextDiagnosticsStore diagnostics,OutboundExecutionService outbound,DurableTurnExecutionStore turnJournal,TurnBoundaryObserver boundaryObserver,PromptSnapshotProvider snapshots) {
         var result=new ConversationOrchestrator(identities,messages,retriever,memories,policy,contexts,prompts,executor,
                 CapabilityPolicy.capabilities(AgentRole.SOCIAL,false),gateway,window,summaries,lifecycle,diagnostics,outbound,turnJournal,boundaryObserver);result.setPromptSnapshotProvider(snapshots);return result;
     }
     @Bean public SocialTriggerPolicy socialTriggerPolicy(XingChenProperties p) { return new SocialTriggerPolicy(p.onebot().loginUserId(),List.of()); }
-    @Bean public ParticipationPolicy participationPolicy() { return new ParticipationPolicy(()->0.0); }
+    @Bean public ParticipationPolicy participationPolicy() { return new ParticipationPolicy(); }
     @Bean public ReservedModeMachine reservedModeMachine(Clock clock,Scheduler scheduler) { return new ReservedModeMachine(clock,scheduler,Duration.ofMinutes(10)); }
     @Bean(destroyMethod="close") public SocialRuntime socialRuntime(OneBotGateway gateway,ConversationOrchestrator orchestrator,
             SocialTriggerPolicy triggers,ParticipationPolicy participation,ReservedModeMachine reserved,HumanInteractionRouter interactions,

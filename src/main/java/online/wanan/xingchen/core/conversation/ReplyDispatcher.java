@@ -15,34 +15,49 @@ public final class ReplyDispatcher {
     public ReplyDispatcher(OneBotGateway gateway,int maxMessages,int maxChars,int maxPerMinute,Duration gap,Clock clock,Consumer<Duration> sleeper,OutboundExecutionService outbound){this.gateway=Objects.requireNonNull(gateway);if(maxMessages<1||maxChars<1||maxPerMinute<1||gap.isNegative())throw new IllegalArgumentException("invalid reply limits");this.maxMessages=maxMessages;this.maxChars=maxChars;this.maxPerMinute=maxPerMinute;this.gap=gap;this.clock=clock;this.sleeper=sleeper;this.outbound=outbound;}
     public static ReplyDispatcher fromEnvironment(OneBotGateway gateway){return fromEnvironment(gateway,null);}
     public static ReplyDispatcher fromEnvironment(OneBotGateway gateway,OutboundExecutionService outbound){Map<String,String> env=System.getenv();return new ReplyDispatcher(gateway,integer(env,"XINGCHEN_REPLY_MAX_MESSAGES",8),integer(env,"XINGCHEN_REPLY_MAX_CHARS",2000),integer(env,"XINGCHEN_REPLY_MAX_PER_MINUTE",30),Duration.ofMillis(integer(env,"XINGCHEN_REPLY_GAP_MS",0)),Clock.systemUTC(),d->{try{Thread.sleep(d);}catch(InterruptedException e){Thread.currentThread().interrupt();}},outbound);}
-    public synchronized List<SendReceipt> dispatch(ResolvedActorContext actor,List<String> messages){return dispatch(actor,messages,null,0);}
-    public synchronized List<SendReceipt> dispatch(ResolvedActorContext actor,List<String> messages,String turnId,long generation){
+    public List<SendReceipt> dispatch(ResolvedActorContext actor,List<String> messages){return dispatch(actor,messages,null,0);}
+    public List<SendReceipt> dispatch(ResolvedActorContext actor,List<String> messages,String turnId,long generation){
         return dispatch(actor,messages,turnId,generation,null);
     }
-    public synchronized List<SendReceipt> dispatch(ResolvedActorContext actor,List<String> messages,String turnId,long generation,online.wanan.xingchen.core.agent.SocialSettingsSnapshot settings){
+    public List<SendReceipt> dispatch(ResolvedActorContext actor,List<String> messages,String turnId,long generation,online.wanan.xingchen.core.agent.SocialSettingsSnapshot settings){
         if(messages==null||messages.isEmpty())return List.of();
         int effectiveMax=settings==null?maxMessages:settings.maxReplyMessages(),effectiveRate=settings==null?maxPerMinute:settings.maxPerMinute();java.time.Duration effectiveGap=settings==null?gap:java.time.Duration.ofMillis(settings.gapMillis());
-        List<SendReceipt> result=new ArrayList<>();int n=Math.min(messages.size(),effectiveMax);
+        List<SendReceipt> result=new ArrayList<>();int n=messages.size();
         for(int i=0;i<n;i++){
-            Instant now=clock.instant();while(!sent.isEmpty()&&!sent.getFirst().isAfter(now.minusSeconds(60)))sent.removeFirst();
-            if(sent.size()>=effectiveRate)break;if(i>0&&!effectiveGap.isZero())sleeper.accept(effectiveGap);
+            if(i>0&&i<effectiveMax&&!effectiveGap.isZero())sleeper.accept(effectiveGap);
             String text=Objects.requireNonNullElse(messages.get(i),"");if(text.isBlank())continue;
             if(text.length()>maxChars)text=text.substring(0,Math.max(0,maxChars-1))+"…";
             final String sendText=text;
             String target=actor.conversation().identity().platformConversationId();
             String kind=actor.conversation().identity().type()==ConversationType.GROUP?"group":"private";
             String recipient=kind.equals("group")?target:actor.person().platformUserId();SendReceipt receipt;
+            final int ordinal=i;
+            java.util.function.Supplier<String> admission=()->Thread.currentThread().isInterrupted()?"send-cancelled":ordinal>=effectiveMax?"burst-limit":reserveRate(effectiveRate)?null:"rate-limited";
             if(outbound!=null&&turnId!=null&&!turnId.isBlank()){
                 String executionKey=actor.conversation().id()+":"+turnId+":"+i;
-                var record=outbound.dispatch(executionKey,actor.conversation().id(),turnId,generation,turnId+":"+i,recipient,
+                var record=outbound.dispatch(executionKey,actor.conversation().id(),turnId,generation,turnId+":"+i,recipient,admission,
                         ()->kind.equals("group")?gateway.sendGroupMessage(recipient,sendText):gateway.sendPrivateMessage(recipient,sendText));
                 DeliveryStatus status=switch(record.status()){case SUCCESS->DeliveryStatus.ACCEPTED;case FAILED->DeliveryStatus.REJECTED;case UNKNOWN,PENDING->DeliveryStatus.UNKNOWN;};
                 receipt=new SendReceipt(status==DeliveryStatus.ACCEPTED,"outbound",Objects.toString(record.providerMessageId(),recipient),
                         status==DeliveryStatus.ACCEPTED?sendText:Objects.toString(record.failureReason(),""),status);
-            }else receipt=kind.equals("group")?gateway.sendGroupMessage(recipient,sendText):gateway.sendPrivateMessage(recipient,sendText);
-            result.add(receipt);if(receipt.accepted())sent.addLast(clock.instant());
+            }else {
+                String rejection=admission.get();
+                receipt=rejection==null?(kind.equals("group")?gateway.sendGroupMessage(recipient,sendText):gateway.sendPrivateMessage(recipient,sendText))
+                        :new SendReceipt(false,"outbound",recipient,rejection,DeliveryStatus.REJECTED);
+            }
+            result.add(receipt);
+            // UNKNOWN may already have delivered remotely. Never send the remaining
+            // parts automatically or reinterpret it as a safely retryable failure.
+            if(receipt.status()==DeliveryStatus.UNKNOWN)break;
         }
         return List.copyOf(result);
+    }
+    /** Only this bounded accounting section is shared; no network IO or sleep under its lock.
+     * Count attempts (including UNKNOWN) so failed/ambiguous sends cannot evade protection. */
+    private synchronized boolean reserveRate(int limit){
+        Instant now=clock.instant();while(!sent.isEmpty()&&!sent.getFirst().isAfter(now.minusSeconds(60)))sent.removeFirst();
+        if(sent.size()>=limit)return false;
+        sent.addLast(now);return true;
     }
     private static int integer(Map<String,String> env,String name,int fallback){try{return Integer.parseInt(env.getOrDefault(name,Integer.toString(fallback)));}catch(NumberFormatException e){return fallback;}}
 }

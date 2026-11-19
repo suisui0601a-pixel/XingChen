@@ -33,7 +33,28 @@ public final class StickerService {
     public Optional<StickerMetadata> updateAdmin(UUID id,List<String> tags,String note,boolean enabled){return repository.updateAdmin(id,normalizeTags(tags),note,enabled);}
     public Optional<StickerMetadata> get(UUID id){return repository.get(id);}
     public Optional<StickerMetadata> note(UUID id,String note){if(note==null||note.length()>500)throw new IllegalArgumentException("sticker note is too long");return repository.updateNote(id,note);}
-    public SendReceipt send(UUID id,String target,String kind){StickerMetadata s=repository.get(id).orElseThrow(()->new NoSuchElementException("sticker not found"));if(!s.enabled())return new SendReceipt(false,"sticker",target,"sticker disabled");Instant now=clock.instant();StickerPolicy.Decision d=policy.evaluate(id,now);if(!d.allowed())return new SendReceipt(false,"sticker",target,d.reason());try{Path rootReal=root.toRealPath(),libraryReal=library.toRealPath(),asset=rootReal.resolve(s.path()).normalize().toRealPath();if(!libraryReal.startsWith(rootReal)||!asset.startsWith(libraryReal)||!Files.isRegularFile(asset)||Files.isSymbolicLink(asset))return new SendReceipt(false,"sticker",target,"sticker asset unavailable");SendReceipt receipt=gateway.sendImage(target,kind,asset.toString());if(receipt.accepted()){repository.recordUse(id,now);policy.record(id,now);}return receipt;}catch(IOException e){return new SendReceipt(false,"sticker",target,"sticker asset unavailable");}}
+    public SendReceipt send(UUID id,String target,String kind){
+        StickerMetadata s=repository.get(id).orElseThrow(()->new NoSuchElementException("sticker not found"));
+        if(!s.enabled())return new SendReceipt(false,"sticker",target,"sticker disabled");
+        Instant now=clock.instant();StickerPolicy.Decision d=policy.evaluate(id,now);
+        if(!d.allowed())return new SendReceipt(false,"sticker",target,d.reason());
+        try{
+            Path rootReal=root.toRealPath(),libraryReal=library.toRealPath(),asset=rootReal.resolve(s.path()).normalize();
+            if(!libraryReal.startsWith(rootReal)||!asset.startsWith(libraryReal)||!Files.isRegularFile(asset,LinkOption.NOFOLLOW_LINKS)||!asset.toRealPath().startsWith(libraryReal))
+                return new SendReceipt(false,"sticker",target,"sticker asset unavailable");
+            for(Path part=asset;part!=null;part=part.getParent())if(Files.isSymbolicLink(part))return new SendReceipt(false,"sticker",target,"sticker asset unavailable");
+            byte[] bytes;
+            try(InputStream input=Files.newInputStream(asset,LinkOption.NOFOLLOW_LINKS)){
+                bytes=input.readNBytes((int)StickerAssetService.MAX_FILE_BYTES+1);
+                if(bytes.length==0||bytes.length>StickerAssetService.MAX_FILE_BYTES)return new SendReceipt(false,"sticker",target,"sticker asset unavailable");
+            }
+            if(!HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)).equals(s.sha256()))
+                return new SendReceipt(false,"sticker",target,"sticker integrity mismatch");
+            SendReceipt receipt=gateway.sendImageBytes(target,kind,bytes);
+            if(receipt.accepted()){repository.recordUse(id,now);policy.record(id,now);}
+            return receipt;
+        }catch(IOException|java.security.NoSuchAlgorithmException e){return new SendReceipt(false,"sticker",target,"sticker asset unavailable");}
+    }
     private static String extension(String name){int i=name.lastIndexOf('.');return i<0?"":name.substring(i).toLowerCase(Locale.ROOT);}
     static List<String> normalizeTags(List<String> tags){if(tags==null)return List.of();if(tags.size()>32)throw new IllegalArgumentException("sticker tag limit exceeded");List<String> result=tags.stream().filter(Objects::nonNull).map(String::trim).filter(s->!s.isEmpty()).peek(s->{if(s.length()>40)throw new IllegalArgumentException("sticker tag is too long");}).distinct().toList();return List.copyOf(result);}
     private static String sha256(Path p)throws IOException{try(InputStream in=Files.newInputStream(p)){MessageDigest d=MessageDigest.getInstance("SHA-256");byte[] b=new byte[8192];int n;while((n=in.read(b))>0)d.update(b,0,n);return HexFormat.of().formatHex(d.digest());}catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}}

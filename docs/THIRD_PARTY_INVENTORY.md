@@ -18,7 +18,7 @@ Source-publication audit, 2026-10-05. Dependency metadata is evidence, not a rep
 | react-router-dom | 7.18.4 | MIT |
 | scheduler | 0.28.0 | MIT |
 | set-cookie-parser | 2.7.2 | MIT |
-| zod | 4.6.5 | MIT |
+| zod | 4.6.7 | MIT |
 
 All 158 lock packages have metadata; development packages retain their original licenses, including MPL-2.0. They are not covered by the non-commercial project license.
 
@@ -69,7 +69,7 @@ All 158 lock packages have metadata; development packages retain their original 
 | spring-tx-6.2.19.jar | Apache License, Version 2.0 |
 | spring-web-6.2.19.jar | Apache License, Version 2.0 |
 | spring-webmvc-6.2.19.jar | Apache License, Version 2.0 |
-| sqlite-jdbc-3.50.3.0.jar | The Apache Software License, Version 2.0 |
+| sqlite-jdbc-3.54.1.0.jar | The Apache Software License, Version 2.0 |
 | tomcat-embed-core-10.1.55.jar | Apache License, Version 2.0 |
 | tomcat-embed-el-10.1.55.jar | Apache License, Version 2.0 |
 | tomcat-embed-websocket-10.1.55.jar | Apache License, Version 2.0 |

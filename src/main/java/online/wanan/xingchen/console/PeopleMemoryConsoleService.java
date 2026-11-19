@@ -19,11 +19,11 @@ public class PeopleMemoryConsoleService {
     private static final int MAX_SIZE=100, MAX_PAGE=10000;
     private final JdbcTemplate jdbc; private final NamedParameterJdbcTemplate named;
     private final IdentityPersistence identities; private final RelationshipTermRegistry terms;
-    private final MemoryRepository memories; private final MemoryRetriever retriever;
+    private final MemoryRepository memories; private final MemoryRecallPort retriever;
     private final AddressResolver addressResolver; private final MemoryPolicy memoryPolicy;
 
     public PeopleMemoryConsoleService(JdbcTemplate jdbc, NamedParameterJdbcTemplate named, IdentityPersistence identities,
-            RelationshipTermRegistry terms, MemoryRepository memories, MemoryRetriever retriever, AddressResolver addressResolver,MemoryPolicy memoryPolicy) {
+            RelationshipTermRegistry terms, MemoryRepository memories, MemoryRecallPort retriever, AddressResolver addressResolver,MemoryPolicy memoryPolicy) {
         this.jdbc=jdbc; this.named=named; this.identities=identities; this.terms=terms; this.memories=memories; this.retriever=retriever; this.addressResolver=addressResolver;this.memoryPolicy=memoryPolicy;
     }
 

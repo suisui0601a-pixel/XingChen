@@ -15,6 +15,18 @@ import java.io.ByteArrayOutputStream;
 import static org.assertj.core.api.Assertions.*;
 
 class StickerSlangUsageContractTest {
+    @Test void managedStickerUsesVerifiedBytesAndRejectsTamperedAssets() throws Exception {
+        var repository=new MemoryStickers();var gateway=new MockOneBotGateway(new OneBotEventNormalizer(new com.fasterxml.jackson.databind.ObjectMapper()),"bot");gateway.connect();
+        var service=new StickerService(temp,repository,new StickerPolicy(2,Duration.ZERO),gateway,Clock.systemUTC());
+        Files.createDirectories(temp.resolve("inbox"));byte[] image=png();Files.write(temp.resolve("inbox/verified.png"),image);
+        var good=service.collect("verified.png",List.of("synthetic"),"test");
+        assertThat(service.send(good.id(),"synthetic-group","group").accepted()).isTrue();
+        assertThat(gateway.sent()).singleElement().satisfies(r->assertThat(r.content()).isEqualTo("base64://"+Base64.getEncoder().encodeToString(image)));
+        Files.writeString(temp.resolve(good.path()),"tampered");
+        var fresh=new StickerService(temp,repository,new StickerPolicy(2,Duration.ZERO),gateway,Clock.systemUTC());
+        assertThat(fresh.send(good.id(),"synthetic-group","group").content()).isEqualTo("sticker integrity mismatch");
+        assertThat(gateway.sent()).hasSize(1);
+    }
     private final Path temp=Path.of("build","test-stickers-"+UUID.randomUUID());
 
     @Test void stk301_collectsLocalImageAsMetadataAndDeduplicatesByHash() throws Exception {
