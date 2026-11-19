@@ -1,3 +1,5 @@
+import java.util.concurrent.TimeUnit
+
 plugins {
     java
     id("org.springframework.boot") version "3.5.15"
@@ -25,7 +27,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.flywaydb:flyway-core")
-    implementation("org.xerial:sqlite-jdbc:3.50.3.0")
+    implementation("org.xerial:sqlite-jdbc:3.54.1.0")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.assertj:assertj-core")
@@ -33,19 +35,30 @@ dependencies {
 
 val frontendDir = layout.projectDirectory.dir("frontend")
 val frontendOutput = layout.buildDirectory.dir("generated-resources/frontend")
-val npmCommand = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) "npm.cmd" else "npm"
+val npmCommand = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true))
+    listOf("cmd.exe", "/d", "/c", "npm.cmd") else listOf("npm")
 
 tasks.register<Exec>("frontendInstall") {
     group = "build"
     description = "Installs the locked Admin Console frontend dependencies."
     workingDir(frontendDir)
     doFirst {
-        val nodeVersion = ProcessBuilder("node", "--version").redirectErrorStream(true).start().inputStream.bufferedReader().readText().trim()
-        val npmVersion = ProcessBuilder(npmCommand, "--version").redirectErrorStream(true).start().inputStream.bufferedReader().readText().trim()
+        fun toolVersion(command: List<String>): String {
+            val process = ProcessBuilder(command).redirectErrorStream(true).start()
+            if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                throw GradleException("Frontend tool version check timed out")
+            }
+            if (process.exitValue() != 0) throw GradleException("Frontend tool version check failed")
+            // Read the small completed result without waiting on an inherited pipe.
+            return process.inputStream.use { it.readNBytes(it.available()).toString(Charsets.UTF_8).trim() }
+        }
+        val nodeVersion = toolVersion(listOf("node", "--version"))
+        val npmVersion = toolVersion(npmCommand + "--version")
         if (nodeVersion != "v24.19.0" || npmVersion != "11.17.0")
             throw GradleException("Admin Console build requires Node v24.19.0 and npm 11.17.0; found $nodeVersion / $npmVersion")
     }
-    commandLine(npmCommand, "ci", "--no-audit", "--no-fund", "--cache", "./.npm-cache")
+    commandLine(npmCommand + listOf("ci", "--no-audit", "--no-fund", "--cache", "./.npm-cache"))
     inputs.files(frontendDir.file("package.json"), frontendDir.file("package-lock.json"))
     outputs.dir(frontendDir.dir("node_modules"))
 }
@@ -54,14 +67,14 @@ tasks.register<Exec>("frontendTypecheck") {
     group = "verification"
     dependsOn("frontendInstall")
     workingDir(frontendDir)
-    commandLine(npmCommand, "run", "typecheck")
+    commandLine(npmCommand + listOf("run", "typecheck"))
 }
 
 tasks.register<Exec>("frontendTest") {
     group = "verification"
     dependsOn("frontendInstall")
     workingDir(frontendDir)
-    commandLine(npmCommand, "test", "--", "--run")
+    commandLine(npmCommand + listOf("test", "--", "--run"))
 }
 
 tasks.register<Exec>("frontendE2e") {
@@ -69,7 +82,7 @@ tasks.register<Exec>("frontendE2e") {
     description = "Runs browser E2E against a temporary loopback bootJar instance and isolated database."
     dependsOn(tasks.named("bootJar"))
     workingDir(frontendDir)
-    commandLine(npmCommand, "run", "e2e", "--", layout.buildDirectory.file("libs/xingchen-core-0.1.0-SNAPSHOT.jar").get().asFile.absolutePath)
+    commandLine(npmCommand + listOf("run", "e2e", "--", layout.buildDirectory.file("libs/xingchen-core-0.1.0-SNAPSHOT.jar").get().asFile.absolutePath))
     environment("XINGCHEN_E2E_ADMIN_USER", "e2e-admin")
     environment("XINGCHEN_E2E_ADMIN_PASSWORD", "local-e2e-console-password")
     environment("XINGCHEN_E2E_PORT", "3200")
@@ -79,7 +92,7 @@ val frontendBuild = tasks.register<Exec>("frontendBuild") {
     group = "build"
     dependsOn("frontendInstall")
     workingDir(frontendDir)
-    commandLine(npmCommand, "run", "build")
+    commandLine(npmCommand + listOf("run", "build"))
     inputs.dir(frontendDir.dir("src"))
     outputs.dir(frontendOutput)
 }

@@ -23,7 +23,14 @@ public final class OutboundExecutionService {
 
     public OutboundExecutionRecord dispatch(String executionKey,UUID conversationId,String turnId,long generation,
             String logicalMessageId,String target,SendOperation operation){
+        return dispatch(executionKey,conversationId,turnId,generation,logicalMessageId,target,()->null,operation);
+    }
+
+    /** Admission runs once, after the durable claim and before any transport call. */
+    public OutboundExecutionRecord dispatch(String executionKey,UUID conversationId,String turnId,long generation,
+            String logicalMessageId,String target,java.util.function.Supplier<String> rejectionReason,SendOperation operation){
         Objects.requireNonNull(operation);
+        Objects.requireNonNull(rejectionReason);
         var now=clock.instant();
         var proposed=new OutboundExecutionRecord(executionKey,conversationId,turnId,generation,logicalMessageId,
                 OutboundExecutionRecord.Status.PENDING,null,null,now,now,null);
@@ -39,6 +46,11 @@ public final class OutboundExecutionService {
         }
         if(!repository.startDispatch(executionKey,clock.instant()))return repository.find(executionKey).orElseThrow();
         try {
+            String rejection=rejectionReason.get();
+            if(rejection!=null){
+                repository.complete(executionKey,OutboundExecutionRecord.Status.FAILED,null,rejection,clock.instant());
+                return repository.find(executionKey).orElseThrow();
+            }
             SendReceipt receipt=operation.send();
             if(receipt==null){repository.complete(executionKey,OutboundExecutionRecord.Status.UNKNOWN,null,"missing-transport-result",clock.instant());}
             else if(receipt.status()==DeliveryStatus.ACCEPTED){

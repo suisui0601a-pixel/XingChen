@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, api, apiErrorText } from './api'
 import type { Language } from './i18n'
 
@@ -7,7 +7,18 @@ type Page={items:Entry[];total:number;page:number;pageSize:number;webResearch:st
 export function SlangPage({language}:{language:Language}){
   const zh=language==='zh-CN';const t=zh?{title:'俚语审核',intro:'离线管理候选词、已确认词和拒绝词。查看页面不会联网研究。聊天证据仅展示脱敏短摘要。',search:'搜索词条与释义',status:'状态',all:'全部',candidate:'待审核',confirmed:'已确认',rejected:'已拒绝',term:'词条',meaning:'释义',source:'来源',evidence:'证据摘要',last:'最近更新',confirm:'确认',reject:'拒绝',edit:'编辑释义',save:'保存释义',manual:'手动添加词条',create:'添加候选词',saved:'已保存',created:'已添加为人工候选词',none:'没有匹配的词条。',research:'网络研究：关闭',private:'证据不会完整显示，也不会写入管理审计。',conflict:'条目已被其他管理员修改，请刷新后重试。',error:'俚语数据暂时不可用。'}:{title:'Slang review',intro:'Review candidate, confirmed and rejected terms offline. Opening this page never triggers web research. Chat evidence is shown only as a redacted short excerpt.',search:'Search terms and meanings',status:'Status',all:'All',candidate:'Candidate',confirmed:'Confirmed',rejected:'Rejected',term:'Term',meaning:'Meaning',source:'Source',evidence:'Evidence summary',last:'Last updated',confirm:'Confirm',reject:'Reject',edit:'Edit meaning',save:'Save meaning',manual:'Add manually',create:'Add candidate',saved:'Saved',created:'Added as a manual candidate',none:'No matching slang entries.',research:'Web research: disabled',private:'Evidence is never shown in full or copied to administration audit.',conflict:'Entry changed elsewhere. Refresh and retry.',error:'Slang data is temporarily unavailable.'}
   const [data,setData]=useState<Page|null>(null),[q,setQ]=useState(''),[status,setStatus]=useState(''),[page,setPage]=useState(0),[term,setTerm]=useState(''),[meaning,setMeaning]=useState(''),[editId,setEditId]=useState(''),[editMeaning,setEditMeaning]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('')
-  const load=useCallback(async()=>{setError('');try{setData(await api<Page>(`/api/slang/admin?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}&page=${page}&size=20`))}catch{setError(t.error)}},[q,status,page,t.error]);useEffect(()=>{void load()},[load])
+  const filters=useRef({q,status,page});filters.current={q,status,page}
+  const pending=useRef<AbortController|null>(null),sequence=useRef(0),mounted=useRef(true)
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;sequence.current++;pending.current?.abort()}},[])
+  const load=useCallback(async()=>{
+    if(!mounted.current)return
+    pending.current?.abort();const controller=new AbortController();pending.current=controller;const id=++sequence.current
+    const current=filters.current;setError('')
+    try{
+      const result=await api<Page>(`/api/slang/admin?q=${encodeURIComponent(current.q)}&status=${encodeURIComponent(current.status)}&page=${current.page}&size=20`,{signal:controller.signal})
+      if(!controller.signal.aborted&&id===sequence.current)setData(result)
+    }catch{if(!controller.signal.aborted&&id===sequence.current)setError(t.error)}
+  },[t.error]);useEffect(()=>{void load();return()=>pending.current?.abort()},[load,q,status,page])
   const create=async()=>{setBusy(true);setNotice('');try{await api<Entry>('/api/slang/admin',{method:'POST',body:JSON.stringify({term,meaning})});setTerm('');setMeaning('');setStatus('CANDIDATE');setPage(0);setNotice(t.created);await load()}catch(cause){setNotice(apiErrorText(cause,language))}finally{setBusy(false)}}
   const mutate=async(entry:Entry,action:'CONFIRM'|'REJECT'|'MEANING')=>{setBusy(true);setNotice('');try{await api<Entry>(`/api/slang/admin/${entry.id}`,{method:'PATCH',body:JSON.stringify({expectedUpdatedAt:entry.updatedAt,action:action==='MEANING'?'':action,meaning:action==='MEANING'?editMeaning:undefined})});setEditId('');setNotice(t.saved);await load()}catch(cause){if(cause instanceof ApiError&&cause.status===409){setNotice(t.conflict);await load()}else setNotice(apiErrorText(cause,language))}finally{setBusy(false)}}
   if(error)return <main className="page media-page"><h1>{t.title}</h1><p role="alert">{error}</p><button className="button secondary" onClick={()=>void load()}>{zh?'重试':'Retry'}</button></main>

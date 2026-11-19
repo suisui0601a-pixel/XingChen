@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.*;
 
 /** Scope-checks first, deduplicates repository search channels, applies a deterministic relevance order and hard token ceiling. */
-public final class MemoryRetriever {
+public final class MemoryRetriever implements MemoryRecallPort {
     private final MemoryRepository repository; private final TokenEstimator estimator;
     public MemoryRetriever(MemoryRepository repository,TokenEstimator estimator){this.repository=repository;this.estimator=estimator;}
     public RelevantMemorySet retrieve(RequestContext request,String currentMessage,UUID conversation,UUID actor,int tokenBudget){

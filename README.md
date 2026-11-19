@@ -1,4 +1,4 @@
-# XingChen Core / 星辰
+# moss（原 XingChen Core）
 
 面向 QQ 社交场景的 Java AI Agent Runtime。
 
@@ -9,7 +9,9 @@
 [![Source available](https://img.shields.io/badge/license-source--available-informational)](LICENSE)
 [![CI](https://github.com/suisui0601a-pixel/XingChen/actions/workflows/ci.yml/badge.svg)](https://github.com/suisui0601a-pixel/XingChen/actions/workflows/ci.yml)
 
-XingChen is a Java 21 application for building a social AI runtime around durable conversations, identity, relationships, memory, bounded agent tools, and model-provider adapters. It uses Spring Boot and SQLite and provides a protected bilingual administration console. QQ connectivity is provided by an independently deployed OneBot v11 gateway; that gateway is not part of this repository or container image.
+moss is a Java 21 application for building a social AI runtime around durable conversations, identity, relationships, memory, bounded agent tools, and model-provider adapters. It uses Spring Boot and SQLite and provides a protected bilingual administration console. QQ connectivity is provided by an independently deployed OneBot v11 gateway; that gateway is not part of this repository or container image.
+
+项目现名为 **moss**。仓库 URL、Java package、`XINGCHEN_*` 配置键及数据路径暂时保留原工程标识，以保持已有配置与持久化状态兼容。现有许可证和作者声明不变。
 
 ## Current status
 
@@ -57,6 +59,14 @@ remote-bind guard.
 - Durable, serialized turn processing with replay/deduplication and restart-aware state.
 - Explicit wake and access policies rather than implicit unrestricted tool access.
 - Wake evaluation applies access control before invalid/self/system filtering and explicit, contextual, then ordinary-random triggers. Random probability affects only eligible ordinary messages.
+
+#### “偶尔冒泡”的实际范围
+
+- 当前支持的是**收到普通群消息后的概率参与**，不是无新消息时主动定时发言；后者尚未实现。
+- 在 Console「社交设置」配置普通消息参与概率；API 字段 `ordinaryMessageProbability` 使用 `0–1`，界面按百分比显示。默认 `0`，表示关闭普通消息随机参与。会话级覆盖优先于全局配置。
+- 例如 `0.05` 表示每条符合条件的普通入站消息有 5% 概率进入模型，不是每 20 条保证回复一次。
+- 访问控制、自身/无效消息过滤、休眠等条件仍生效。私聊、Owner 消息，以及启用的 @、回复机器人、问句或配置成员等唤醒条件，会直接参与模型，不受该普通群消息概率控制。
+- 进入模型后仍可能选择 `NO_REPLY`；限流拒绝及 `UNKNOWN` 出站不会被当成成功回复，也不会自动盲目重发。
 
 ### Identity and memory
 

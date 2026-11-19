@@ -4,6 +4,37 @@
 
 ### Fixed
 
+- Fix production participation wiring that supplied a constant zero RNG: every
+  positive ordinary-message probability previously selected every eligible event.
+  Use the default random source; keep deterministic RNGs confined to tests.
+- Clarify that probability-based participation requires a new inbound message and
+  is disabled by default. Idle proactive messaging has not been implemented.
+- Keep final text dispatch independent of tool-result bookkeeping, while retaining
+  per-tool and per-output ledger keys. Stop automatic continuation after UNKNOWN
+  tool delivery rather than risking a second send.
+- Record rate/burst rejections explicitly. Reserve shared send-attempt quota in a
+  short critical section; transport IO and pacing no longer hold the shared lock.
+  Failed and UNKNOWN attempts consume quota; durable replays do not consume it again.
+- Scope OneBot reads and hydrated quotes by platform and private/group identity.
+  Native tools use non-consuming reads with the persistent markRead cursor and
+  reject expired cursor windows rather than silently losing or replaying messages.
+- Serialize plain text and replies as typed OneBot segments. CQ-looking model text
+  stays literal text; images use bounded, verified managed bytes and Base64 transport.
+- Preserve unsaved gateway drafts during status polling, flag observed external
+  configuration changes, and cancel superseded/unmounted status requests.
+- Reload the current slang filter after moderation completes and ignore superseded
+  list responses instead of overwriting the newly selected status.
+- Bound frontend tool-version probes and disable Windows cmd AutoRun for npm
+  invocations so build verification cannot wait indefinitely on inherited pipes.
+- Update SQLite JDBC to 3.54.1.0 and compatible frontend security patches.
+
+### Integration boundary
+
+- Reserve a read-only MemoryRecallPort backed by the existing local retriever.
+  No external memory service, SDK, network calls, or migration is enabled.
+
+### Earlier changes
+
 - Added provider-local, reversible function/tool-name mapping for DeepSeek. Core
   canonical dotted names and capability policy remain unchanged.
 - Added collision detection, rejection of unknown provider tool names, historical

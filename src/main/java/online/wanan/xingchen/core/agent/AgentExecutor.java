@@ -66,6 +66,11 @@ public final class AgentExecutor {
                 boolean claimed=initial.cancellationToken().withCurrentGeneration(()->executionLedger.claim(eventId,call.id()));if(!claimed){security.record(new SecurityEvent("TOOL_REPLAY_BLOCKED",call.name(),"tool call was already claimed; refusing possible duplicate side effect",null));return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"tool-replay-blocked");}
                 ToolResult output=initial.cancellationToken().withCurrentGeneration(()->tools.execute(call.toToolCall(),initial,initial.availableCapabilities()));turnState.toolExecuted();boundaryObserver.toolExecuted(turnId,call);steps++;
                 toolNames.add(call.name());ModelToolResult bounded=bound(ModelToolResult.from(call,output));results.add(bounded);transcript.add(ModelMessage.tool(bounded));toolContext.add(bounded.promptContent());
+                if("UNKNOWN".equals(output.data().get("deliveryStatus"))){
+                    turnState.outboundOutputUnknown();
+                    security.record(new SecurityEvent("OUTBOUND_UNKNOWN",call.name(),"unconfirmed tool send; automatic continuation stopped",null));
+                    return complete(initial,AgentDecision.noReply(),total,steps,current,results,candidate,toolNames,callsMade,"outbound-unknown",turnState);
+                }
             }
         }
     }

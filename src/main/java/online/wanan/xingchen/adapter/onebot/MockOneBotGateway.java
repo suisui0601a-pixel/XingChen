@@ -25,9 +25,11 @@ public final class MockOneBotGateway implements OneBotGateway {
     @Override public SendReceipt replyMessage(String id,String text){return record("reply",id,text);}
     @Override public List<PlatformEvent> getRecentMessages(String id,int limit){var matching=events.stream().filter(e->e.conversation().platformConversationId().equals(id)).toList();return matching.stream().skip(Math.max(0,matching.size()-Math.max(0,limit))).toList();}
     @Override public List<PlatformEvent> getUnreadMessages(String id,int limit){return getRecentMessages(id,limit);}
+    @Override public List<PlatformEvent> getRecentMessages(online.wanan.xingchen.core.model.ConversationIdentity identity,int limit){var matching=events.stream().filter(e->e.conversation().equals(identity)).toList();return matching.stream().skip(Math.max(0,matching.size()-Math.max(0,limit))).toList();}
     @Override public Optional<GatewayMember> getGroupMember(String group,String user){return Optional.ofNullable(members.getOrDefault(group,Map.of()).get(user));}
     @Override public List<GatewayMember> getGroupMembers(String group){return List.copyOf(members.getOrDefault(group,Map.of()).values());}
     @Override public SendReceipt sendPoke(String group,String user){return record("poke",group+":"+user,"");}
     @Override public SendReceipt sendImage(String target,String kind,String path){return record("image-"+kind,target,path);}
+    @Override public SendReceipt sendImageBytes(String target,String kind,byte[] bytes){return record("image-"+kind,target,"base64://"+Base64.getEncoder().encodeToString(bytes));}
     private SendReceipt record(String op,String target,String content){var receipt=new SendReceipt(connected,op,target,content);sent.add(receipt);return receipt;}
 }

@@ -24,6 +24,10 @@ final class IsolatedWakeOneBotGateway implements OneBotGateway {
     @Override public List<GatewayMember> getGroupMembers(String group){return delegate.getGroupMembers(group);}
     @Override public SendReceipt sendPoke(String group,String user){return delegate.sendPoke(group,user);}
     @Override public SendReceipt sendImage(String target,String kind,String asset){return delegate.sendImage(target,kind,asset);}
+    @Override public SendReceipt sendImageBytes(String target,String kind,byte[] bytes){return delegate.sendImageBytes(target,kind,bytes);}
+    @Override public List<PlatformEvent> getRecentMessages(online.wanan.xingchen.core.model.ConversationIdentity id,int limit){return delegate.getRecentMessages(id,limit);}
+    @Override public List<PlatformEvent> getUnreadMessages(online.wanan.xingchen.core.model.ConversationIdentity id,String cursor,int limit){return delegate.getUnreadMessages(id,cursor,limit);}
+    @Override public List<PlatformEvent> waitForMessages(online.wanan.xingchen.core.model.ConversationIdentity id,String cursor,Duration timeout){return List.of();}
     @Override public void setEventListener(Consumer<PlatformEvent> listener){delegate.setEventListener(listener);}
     @Override public GatewayStatus reconnect(){return delegate.reconnect();}
     @Override public Optional<PlatformEvent> getMessage(String id){return delegate.getMessage(id);}

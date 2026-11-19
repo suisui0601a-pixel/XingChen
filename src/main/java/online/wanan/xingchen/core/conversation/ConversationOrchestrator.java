@@ -15,7 +15,7 @@ import java.util.*;
 
 /** Coordinates domain use cases only; identity, memory policy, context, agent and transport remain separate services. */
 public final class ConversationOrchestrator {
-    private final IdentityResolver identities;private final IncomingMessageStore messages;private final MemoryRetriever retriever;
+    private final IdentityResolver identities;private final IncomingMessageStore messages;private final MemoryRecallPort retriever;
     private final MemoryRepository memories;private final MemoryPolicy memoryPolicy;private final ContextBuilder contexts;
     private final PromptSections prompts;private final SocialAgent agent;private final Set<AgentCapability> capabilities;
     private final MockToolExecutor tools;private final OneBotGateway gateway;private final ConversationWindow window;
@@ -25,7 +25,7 @@ public final class ConversationOrchestrator {
     private final ReplyDispatcher replies;
     private final TurnBoundaryObserver boundaryObserver;
     private PromptSnapshotProvider promptSnapshots;
-    public ConversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,MemoryRetriever retriever,
+    public ConversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,MemoryRecallPort retriever,
             MemoryRepository memories,MemoryPolicy memoryPolicy,ContextBuilder contexts,PromptSections prompts,
             SocialAgent agent,Set<AgentCapability> capabilities,MockToolExecutor tools,OneBotGateway gateway,
             ConversationWindow window,MockSummaryProvider summaryProvider,SessionLifecycleManager lifecycle,ContextDiagnosticsStore diagnostics){
@@ -36,27 +36,27 @@ public final class ConversationOrchestrator {
         this.boundaryObserver=TurnBoundaryObserver.NOOP;
         this.replies=ReplyDispatcher.fromEnvironment(gateway);
     }
-    public ConversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,MemoryRetriever retriever,
+    public ConversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,MemoryRecallPort retriever,
             MemoryRepository memories,MemoryPolicy memoryPolicy,ContextBuilder contexts,PromptSections prompts,
             AgentExecutor executor,Set<AgentCapability> capabilities,OneBotGateway gateway,ConversationWindow window,
             MockSummaryProvider summaryProvider,SessionLifecycleManager lifecycle,ContextDiagnosticsStore diagnostics){
         this(identities,messages,retriever,memories,memoryPolicy,contexts,prompts,executor,capabilities,gateway,window,summaryProvider,lifecycle,diagnostics,null);
     }
-    public ConversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,MemoryRetriever retriever,
+    public ConversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,MemoryRecallPort retriever,
             MemoryRepository memories,MemoryPolicy memoryPolicy,ContextBuilder contexts,PromptSections prompts,
             AgentExecutor executor,Set<AgentCapability> capabilities,OneBotGateway gateway,ConversationWindow window,
             MockSummaryProvider summaryProvider,SessionLifecycleManager lifecycle,ContextDiagnosticsStore diagnostics,
             OutboundExecutionService outbound){
         this(identities,messages,retriever,memories,memoryPolicy,contexts,prompts,executor,capabilities,gateway,window,summaryProvider,lifecycle,diagnostics,outbound,null);
     }
-    public ConversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,MemoryRetriever retriever,
+    public ConversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,MemoryRecallPort retriever,
             MemoryRepository memories,MemoryPolicy memoryPolicy,ContextBuilder contexts,PromptSections prompts,
             AgentExecutor executor,Set<AgentCapability> capabilities,OneBotGateway gateway,ConversationWindow window,
             MockSummaryProvider summaryProvider,SessionLifecycleManager lifecycle,ContextDiagnosticsStore diagnostics,
             OutboundExecutionService outbound,DurableTurnExecutionStore turnJournal){
         this(identities,messages,retriever,memories,memoryPolicy,contexts,prompts,executor,capabilities,gateway,window,summaryProvider,lifecycle,diagnostics,outbound,turnJournal,TurnBoundaryObserver.NOOP);
     }
-    public ConversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,MemoryRetriever retriever,
+    public ConversationOrchestrator(IdentityResolver identities,IncomingMessageStore messages,MemoryRecallPort retriever,
             MemoryRepository memories,MemoryPolicy memoryPolicy,ContextBuilder contexts,PromptSections prompts,
             AgentExecutor executor,Set<AgentCapability> capabilities,OneBotGateway gateway,ConversationWindow window,
             MockSummaryProvider summaryProvider,SessionLifecycleManager lifecycle,ContextDiagnosticsStore diagnostics,
@@ -130,7 +130,9 @@ public final class ConversationOrchestrator {
         if(decision.memoryCandidate()!=null&&!cancellation.isCancelled()){evaluation=memoryPolicy.evaluate(decision.memoryCandidate(),actor);if(evaluation.memory()!=null&&!cancellation.isCancelled()){Memory m=evaluation.memory();cancellation.runWithCurrentGeneration(()->memories.save(m,List.of(new MemorySource(m.id(),event.platform().name(),actor.conversation().id(),event.message().platformMessageId(),actor.person().id(),Instant.now()))));}}
         if(execution!=null&&!execution.toolResults().isEmpty()){var last=execution.toolResults().getLast();toolResult=new ToolResult(last.success(),last.content(),last.data());}
         else if(execution==null&&decision.type()==DecisionType.TOOL_CALL&&!cancellation.isCancelled())toolResult=cancellation.withCurrentGeneration(()->tools.execute(decision.toolCall(),capabilities));
-        else if((decision.type()==DecisionType.TEXT_REPLY||decision.type()==DecisionType.MULTI_REPLY)&&!cancellation.isCancelled()){var receipts=cancellation.withCurrentGeneration(()->{boundaryObserver.outboundDispatchInvoked(logicalTurnId);return replies.dispatch(actor,decision.messages(),logicalTurnId,simulation==null?0:simulation.generation(),socialSettings);});if(execution!=null&&execution.turnState()!=null){if(receipts.stream().anyMatch(r->r.status()==DeliveryStatus.UNKNOWN))execution.turnState().outboundOutputUnknown();else if(receipts.stream().anyMatch(SendReceipt::accepted))execution.turnState().outboundOutputSent();}}
+        // Tool result bookkeeping must not consume the final-text branch. Sending tools
+        // retain their own ledger keys; final output uses the existing per-part keys.
+        if(journalable&&(decision.type()==DecisionType.TEXT_REPLY||decision.type()==DecisionType.MULTI_REPLY)&&!cancellation.isCancelled()){var receipts=cancellation.withCurrentGeneration(()->{boundaryObserver.outboundDispatchInvoked(logicalTurnId);return replies.dispatch(actor,decision.messages(),logicalTurnId,simulation==null?0:simulation.generation(),socialSettings);});if(execution!=null&&execution.turnState()!=null){if(receipts.stream().anyMatch(r->r.status()==DeliveryStatus.UNKNOWN))execution.turnState().outboundOutputUnknown();else if(receipts.stream().anyMatch(SendReceipt::accepted))execution.turnState().outboundOutputSent();}}
         return new OrchestrationResult(false,false,rollover,actor,context,decision,evaluation,toolResult);
     }
     public DecisionType resumePersistedDecision(PlatformEvent event,DurableTurnExecutionStore.RecoveryTurn turn){
