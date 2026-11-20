@@ -99,10 +99,11 @@ public class RuntimeGraphConfiguration {
             SocialTriggerPolicy triggers,ParticipationPolicy participation,ReservedModeMachine reserved,HumanInteractionRouter interactions,
             SimulationStateService simulation,DurableTurnExecutionStore turnJournal,ShortContextResetService resetService,
             ConversationResetCoordinator resetCoordinator,XingChenProperties properties,RuntimeIntegrationStatus switches,
-            online.wanan.xingchen.console.SocialSettingsService socialSettings,online.wanan.xingchen.console.AccessControlService accessControl) {
+            online.wanan.xingchen.console.SocialSettingsService socialSettings,online.wanan.xingchen.console.AccessControlService accessControl,
+            ProactiveParticipationService proactive) {
         var runtime=new SocialRuntime(gateway,orchestrator,triggers,participation,reserved,()->0.0,
                 event->switches.dshEnabled()&&interactions.route(event),simulation,turnJournal);
-        runtime.setResetService(resetService);runtime.setResetControl(resetCoordinator,properties.owner().platformUserId());runtime.setSocialSettingsService(socialSettings);runtime.setAccessControlService(accessControl);return runtime;
+        runtime.setResetService(resetService);runtime.setResetControl(resetCoordinator,properties.owner().platformUserId());runtime.setSocialSettingsService(socialSettings);runtime.setAccessControlService(accessControl);runtime.setProactiveService(proactive);return runtime;
     }
     @Bean public DshSessionService dshSessionService(SqliteDshSessionMappingRepository mappings,DshGateway gateway,Clock clock,
             @Value("${xingchen.dsh.workspace-path:${user.dir}}") String workspace) {

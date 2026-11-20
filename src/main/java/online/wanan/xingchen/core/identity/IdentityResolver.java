@@ -28,6 +28,18 @@ public final class IdentityResolver {
         AddressResolution address=addressResolver.resolveAddress(bot.id(),person.id(),conversationId,display,terms.all());
         return new ResolvedActorContext(person,conversation,membership,flags,display,address);
     }
+    /** Timer context reads existing identities without observing a new human interaction. */
+    public ResolvedActorContext resolveExisting(PlatformEvent anchor,UUID conversationId){
+        var person=registry.find(anchor.platform(),anchor.actor().platformUserId()).orElseThrow();
+        var membership=registry.memberships(person.id()).stream().filter(m->m.conversationId().equals(conversationId)).findFirst().orElseThrow();
+        var conversation=new Conversation(conversationId,anchor.conversation());
+        String display=first(membership.card(),membership.currentDisplayName(),person.platformUserId());
+        if(anchor.conversation().type()==online.wanan.xingchen.core.model.ConversationType.GROUP)
+            return new ResolvedActorContext(person,conversation,membership,new ActorFlags(false,false,false,false),"本群会话",null);
+        var bot=registry.find(anchor.platform(),botPlatformId).orElseThrow();
+        var address=addressResolver.resolveAddress(bot.id(),person.id(),anchor.conversation().platformConversationId(),display,terms.all());
+        return new ResolvedActorContext(person,conversation,membership,new ActorFlags(false,false,false,false),display,address);
+    }
     private static IdentityRole role(String value){return switch(value==null?"member":value.toLowerCase(Locale.ROOT)){case "owner","group_owner"->IdentityRole.GROUP_OWNER;case "admin","group_admin"->IdentityRole.GROUP_ADMIN;default->IdentityRole.MEMBER;};}
     private static String first(String... values){for(String s:values)if(s!=null&&!s.isBlank())return s;return "";}
 }

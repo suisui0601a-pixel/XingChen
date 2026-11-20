@@ -32,6 +32,7 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
     private volatile String resetOwnerQq;
     private volatile online.wanan.xingchen.console.SocialSettingsService socialSettingsService;
     private volatile online.wanan.xingchen.console.AccessControlService accessControlService;
+    private volatile ProactiveParticipationService proactive;
     private final ActiveTurnRegistry activeTurns=new ActiveTurnRegistry();
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -69,6 +70,7 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
     public void setResetControl(ConversationResetCoordinator coordinator,String ownerQq){this.resetCoordinator=coordinator;this.resetOwnerQq=ownerQq;}
     public void setSocialSettingsService(online.wanan.xingchen.console.SocialSettingsService service){this.socialSettingsService=Objects.requireNonNull(service);}
     public void setAccessControlService(online.wanan.xingchen.console.AccessControlService service){this.accessControlService=Objects.requireNonNull(service);}
+    public void setProactiveService(ProactiveParticipationService service){this.proactive=Objects.requireNonNull(service);}
 
     public synchronized void start() {
         if (!started.compareAndSet(false, true)) return;
@@ -98,10 +100,16 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
             String key=event.conversation().platform()+":"+event.conversation().type()+":"+event.conversation().platformConversationId();
             try{queue.execute(key,()->recoverClaimed(event,current,turn));}catch(RejectedExecutionException ignored){turnJournal.fail(turn.turnId());LOG.log(System.Logger.Level.WARNING,"durable turn recovery deferred because the bounded conversation queue is full");}
         }}
+        var timers=proactive;if(timers!=null)timers.start(new ProactiveParticipationService.RuntimePort(){
+            public boolean running(){return isRunning();}
+            public boolean idle(String key){return !queue.active(key)&&queue.queuedFor(key)==0;}
+            public boolean enqueue(String key,Runnable task){try{queue.execute(key,task);return true;}catch(RejectedExecutionException full){return false;}}
+        });
     }
 
     private void enqueue(PlatformEvent event) {
         if (!started.get()) return;
+        var timers=proactive;if(timers!=null)timers.incoming(event);
         var conversation=event.conversation();
         String key=conversation.platform()+":"+conversation.type()+":"+conversation.platformConversationId();
         var coordinator=resetCoordinator;
@@ -232,6 +240,7 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
     @Override public SimulationSnapshot wake(String laneKey,java.util.UUID conversationId,long expectedGeneration,boolean ownerAllowed){return serialized(laneKey,()->snapshot(simulation.wake(conversationId,expectedGeneration,ownerAllowed)));}
     @Override public SimulationSnapshot reset(String laneKey,java.util.UUID conversationId,long expectedGeneration){
         var coordinator=resetCoordinator;if(coordinator==null||resetService==null)throw new IllegalStateException("conversation reset is unavailable");
+        var timers=proactive;if(timers!=null)timers.interruptConversation(laneKey);
         ConversationResetCoordinator.ResetTicket ticket; synchronized(coordinator){ticket=coordinator.consoleInterrupt(conversationId,expectedGeneration,laneKey,activeTurns);}
         var result=new java.util.concurrent.CompletableFuture<SimulationSnapshot>();
         try{queue.execute(laneKey,()->{try{processResetCleanup(ticket);result.complete(snapshot(simulation.get(conversationId)));}catch(Throwable failure){result.completeExceptionally(failure);}});}catch(java.util.concurrent.RejectedExecutionException failure){result.completeExceptionally(failure);}
@@ -242,6 +251,7 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
     private static SimulationSnapshot snapshot(online.wanan.xingchen.core.agent.SimulationConversationState s){return new SimulationSnapshot(s.mode(),s.wakeState().name(),s.generation(),s.updatedAt()==null?"":s.updatedAt().toString());}
     public synchronized void stop() {
         if (!started.getAndSet(false)) return;
+        var timers=proactive;if(timers!=null)timers.close();
         gateway.setEventListener(null);
         gateway.disconnect();
         reserved.markIdle();
