@@ -4,8 +4,9 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class ConversationWindow {
+    private static final int LIMIT=128;
     private final Map<String,List<String>> recent=new ConcurrentHashMap<>();
-    public List<String> appendAndGet(String key,String message){List<String> values=recent.computeIfAbsent(key,k->Collections.synchronizedList(new ArrayList<>()));values.add(message);return List.copyOf(values);}
-    public List<String> get(String key){return List.copyOf(recent.getOrDefault(key,List.of()));}
+    public List<String> appendAndGet(String key,String message){return recent.compute(key,(k,prior)->{var next=new ArrayList<String>(prior==null?List.of():prior);next.add(message);return List.copyOf(next.subList(Math.max(0,next.size()-LIMIT),next.size()));});}
+    public List<String> get(String key){return recent.getOrDefault(key,List.of());}
     public void clear(String key){recent.remove(key);}
 }

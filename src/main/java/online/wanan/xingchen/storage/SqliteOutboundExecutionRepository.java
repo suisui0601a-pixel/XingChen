@@ -14,9 +14,10 @@ public class SqliteOutboundExecutionRepository {
     private final JdbcTemplate jdbc;
     public SqliteOutboundExecutionRepository(JdbcTemplate jdbc){this.jdbc=jdbc;}
 
-    @Transactional public boolean reserve(OutboundExecutionRecord record){
-        return jdbc.update("INSERT OR IGNORE INTO onebot_outbound_executions(execution_key,conversation_id,turn_id,generation,logical_message_id,status,provider_message_id,failure_reason,created_at,updated_at,dispatch_started_at) VALUES(?,?,?,?,?,'PENDING',NULL,NULL,?,?,NULL)",
-                record.executionKey(),record.conversationId().toString(),record.turnId(),record.generation(),record.logicalMessageId(),str(record.createdAt()),str(record.updatedAt()))==1;
+    @Transactional public boolean reserve(OutboundExecutionRecord record){return reserve(record,null,null);}
+    @Transactional public boolean reserve(OutboundExecutionRecord record,String contextText,String contextKind){
+        return jdbc.update("INSERT OR IGNORE INTO onebot_outbound_executions(execution_key,conversation_id,turn_id,generation,logical_message_id,status,provider_message_id,failure_reason,created_at,updated_at,dispatch_started_at,context_text,context_kind) VALUES(?,?,?,?,?,'PENDING',NULL,NULL,?,?,NULL,?,?)",
+                record.executionKey(),record.conversationId().toString(),record.turnId(),record.generation(),record.logicalMessageId(),str(record.createdAt()),str(record.updatedAt()),contextText,contextKind)==1;
     }
     @Transactional public boolean startDispatch(String key,Instant at){
         return jdbc.update("UPDATE onebot_outbound_executions SET dispatch_started_at=?,updated_at=? WHERE execution_key=? AND status='PENDING' AND dispatch_started_at IS NULL",str(at),str(at),key)==1;
