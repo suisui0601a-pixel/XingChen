@@ -137,7 +137,7 @@ public final class ConversationOrchestrator {
         List<String> recent=history.stream().map(ContextMessage::promptText).toList();
         boolean proactiveGroup=proactive&&actor.conversation().identity().type()==online.wanan.xingchen.core.model.ConversationType.GROUP;
         UUID memoryPerson=proactiveGroup?UUID.nameUUIDFromBytes(("moss:proactive-group:"+actor.conversation().id()).getBytes(java.nio.charset.StandardCharsets.UTF_8)):actor.person().id();
-        RequestContext request=new RequestContext(memoryPerson,actor.conversation().id(),actor.flags().owner(),null);
+        RequestContext request=new RequestContext(memoryPerson,actor.conversation().id(),actor.flags().owner(),null,actor.conversation().identity().type());
         RelevantMemorySet relevant=retriever.retrieve(request,event.text(),actor.conversation().id(),proactiveGroup?null:actor.person().id(),contexts.budget().memoryTokenBudget());
         String address=actor.address();SessionHandoff prior=lifecycle.loadHandoff(key);
         ContextPackage context=build(actor,event,request,relevant,recent,prior==null?"":prior.conversationSummary(),simulation,wakeReasons,promptSnapshot,history);
