@@ -194,7 +194,9 @@ class DurableConversationContextTest {
     @Test void toolRoundActuallyUsesTheHistorySelectedByItsNewBudget(){
         var identity=new ConversationIdentity(Platform.QQ,ConversationType.GROUP,"budget-scope");
         var history=new ArrayList<ContextMessage>();for(int i=0;i<4;i++)history.add(new ContextMessage(ContextMessage.Role.USER,"member","Member",Instant.EPOCH,"fixture-"+i,"history-marker-"+i+"x".repeat(700)));
-        var budget=new ContextBudget(250,750,1200,10,0,0,800,0);var builder=new ContextBuilder(budget);
+        // Keep the same variable-history allowance after reserving the shared fixed prompt.
+        int protocolTokens=new ApproximateTokenEstimator().estimate(online.wanan.xingchen.core.prompt.QqSocialProtocol.TEXT);
+        var budget=new ContextBudget(250+protocolTokens,750+protocolTokens,1200+protocolTokens,10,0,0,800,0);var builder=new ContextBuilder(budget);
         var context=builder.build(new ContextBuildInput("s","p","sender","Member","friend","budget-scope",List.of(),"",List.of(),Map.of(),"current","",null,List.of(),identity,history));
         var actor=org.mockito.Mockito.mock(online.wanan.xingchen.core.identity.ResolvedActorContext.class);org.mockito.Mockito.when(actor.conversation()).thenReturn(new online.wanan.xingchen.core.identity.Conversation(java.util.UUID.randomUUID(),identity));
         var tools=org.mockito.Mockito.mock(ToolExecutor.class);org.mockito.Mockito.when(tools.execute(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anySet())).thenReturn(new ToolResult(true,"read-payload "+"y".repeat(2000),Map.of()));

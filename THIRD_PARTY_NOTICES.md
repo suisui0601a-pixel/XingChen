@@ -18,6 +18,17 @@ components. No external font/icon/image pack is tracked. The tiny test PNG is
 generated from a synthetic fixture. Operator-supplied media remains the operator's
 responsibility and is not covered by the XingChen license.
 
+## QQ social behavior prompt
+
+`src/main/resources/prompts/qq-social-protocol.txt` adapts chat-behavior passages
+from Derpyu520/qq-bridge's `qq-chat-v2` preset (source snapshot
+`b21a8ccce9b516455ee454245b1553f0630c895b`,
+`dsh/agent-presets/qq-chat-v2/agent.cordis.yml`). The upstream MIT notice is
+preserved in `third-party/qq-bridge/LICENSE`; XingChen's own license does not
+replace those rights in the upstream passages. Changes adapt tool names,
+automatic final-text delivery, trusted conversation scopes and current memory
+boundaries; they do not embed a private role card. See `docs/QQ_SOCIAL_PROMPT.md`.
+
 ## Dependency evidence
 
 The reviewed npm lock contains 158 packages with license metadata present for
