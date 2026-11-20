@@ -47,5 +47,7 @@ public interface OneBotGateway {
     default void setEventListener(Consumer<PlatformEvent> listener) {}
     default GatewayStatus reconnect(){disconnect();return connect();}
     default Optional<PlatformEvent> getMessage(String messageId){return Optional.empty();}
+    /** Resolve an observed image identifier via authenticated OneBot get_image; never read its local path. */
+    default Optional<String> imageUrl(String file){return Optional.empty();}
     default List<PlatformEvent> waitForMessages(String conversationId,java.time.Duration timeout){return getUnreadMessages(conversationId,20);}
 }

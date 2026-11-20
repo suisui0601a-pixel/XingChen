@@ -17,6 +17,7 @@ public final class SocialTriggerPolicy {
     }
     public WakeDecision evaluate(PlatformEvent event,Collection<String> configuredSpeakers,SocialSettingsSnapshot settings){
         if(event.actor().self()||event.eventType().startsWith("notice:"))return new WakeDecision(SocialTrigger.IGNORE,Set.of());
+        if(Boolean.TRUE.equals(event.rawMetadata().get("imageOnly"))||Boolean.TRUE.equals(event.rawMetadata().get("imageRecordOnly")))return new WakeDecision(SocialTrigger.IGNORE,Set.of("IMAGE_RECORDED_ONLY"));
         Set<String> reasons=new LinkedHashSet<>();String text=Objects.requireNonNullElse(event.text(),"").toLowerCase(Locale.ROOT);
         boolean mention=settings==null||settings.mentionWake();
         boolean reply=settings==null||settings.replyToBotWake();

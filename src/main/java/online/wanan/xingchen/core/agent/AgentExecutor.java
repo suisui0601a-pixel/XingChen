@@ -43,18 +43,26 @@ public final class AgentExecutor {
     private AgentExecutionResult executeTurn(AgentRequest initial){
         List<String> toolContext=new ArrayList<>();List<ModelToolResult> results=new ArrayList<>();List<ModelMessage> transcript=new ArrayList<>();List<String> toolNames=new ArrayList<>();ModelUsage total=new ModelUsage(0,0,0,0,0,"unknown","unknown",0);MemoryCandidate candidate=null;int steps=0,callsMade=0;String turnId=initial.turnId()==null||initial.turnId().isBlank()?(initial.eventId()==null||initial.eventId().isBlank()?UUID.randomUUID().toString():initial.eventId()):initial.turnId();ModelTurnExecutionState turnState=new ModelTurnExecutionState(initial.turnStateObserver());
         ModelProvider turnProvider=provider.snapshot();if(!turnProvider.available())return stopped(initial,initial.context(),total,0,results,null,toolNames,0,turnProvider.unavailableReason());
+        initial.cancellationToken().throwIfCancelled();
+        ModelInputAttachments attachments=tools.modelInputs(initial);
+        if(attachments==null)attachments=ModelInputAttachments.NONE;
         ContextPackage current=initial.context();
         for(;;){
             current=rebuild(initial.context(),toolContext);
-            if(current.estimatedTokens()>maxContextTokens)return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"context-token-limit");
+            if((long)current.estimatedTokens()+attachments.tokenReserve()+estimator.estimate(attachments.notice())>maxContextTokens)return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"context-token-limit");
             int fullToolTokens=toolContext.stream().mapToInt(estimator::estimate).sum();if(fullToolTokens>current.diagnostics().toolResultTokens())return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"tool-result-token-limit");
-            var requestMessages=new ArrayList<>(new ModelRequest(current,catalog.available(initial.availableCapabilities())).messages());requestMessages.addAll(transcript);
+            var requestMessages=new ArrayList<>(new ModelRequest(current,catalog.available(initial.availableCapabilities())).messages());
+            if(!attachments.images().isEmpty()||!attachments.notice().isBlank()){
+                int active=requestMessages.size()-1;var user=requestMessages.get(active);
+                requestMessages.set(active,new ModelMessage(ModelRole.USER,user.content()+(attachments.notice().isBlank()?"":"\n[图片处理状态]\n"+attachments.notice()),null,null,List.of(),attachments.images()));
+            }
+            requestMessages.addAll(transcript);
             initial.cancellationToken().throwIfCancelled();if(turnState.state()==ModelTurnExecutionState.State.NOT_STARTED)turnState.begin();ModelRequest request=new ModelRequest(current,catalog.available(initial.availableCapabilities()),List.copyOf(requestMessages),1024,initial.cancellationToken(),turnState);
             ModelResponse response;
             try{response=turnProvider.stream(request,event->{});}catch(java.util.concurrent.CancellationException ex){return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"cancelled");}
             if(initial.cancellationToken().isCancelled())return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"cancelled");
             if(response!=null&&(response.decision()!=null||!response.toolCalls().isEmpty()))turnState.modelOutputReceived();
-            callsMade++;if(response.usage()!=null){total=plus(total,response.usage());if(estimator instanceof ProviderTokenEstimator calibrated&&response.usage().inputTokens()>0)calibrated.recordUsage(response.usage().provider(),response.usage().model(),String.join("\n",request.messages().stream().map(ModelMessage::content).toList()),response.usage().inputTokens());if(usageLedger!=null)usageLedger.record(initial.actor().conversation().id(),turnId,response.usage());if(response.usage().inputTokens()+response.usage().outputTokens()>maxContextTokens)return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"provider-call-token-limit");}
+            callsMade++;if(response.usage()!=null){total=plus(total,response.usage());if(estimator instanceof ProviderTokenEstimator calibrated&&response.usage().inputTokens()>0&&request.messages().stream().allMatch(m->m.images().isEmpty()))calibrated.recordUsage(response.usage().provider(),response.usage().model(),String.join("\n",request.messages().stream().map(ModelMessage::content).toList()),response.usage().inputTokens());if(usageLedger!=null)usageLedger.record(initial.actor().conversation().id(),turnId,response.usage());if(response.usage().inputTokens()+response.usage().outputTokens()>maxContextTokens)return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"provider-call-token-limit");}
             if(response.memoryCandidate()!=null)candidate=response.memoryCandidate();
             List<ModelToolCall> calls=response.toolCalls();if(calls.isEmpty()&&response.decision()!=null&&response.decision().type()==DecisionType.TOOL_CALL&&response.decision().toolCall()!=null)calls=List.of(new ModelToolCall("tool-"+(steps+1),response.decision().toolCall().name(),response.decision().toolCall().arguments()));
             if(calls.isEmpty()){AgentDecision decision=response.decision()==null?AgentDecision.noReply():response.decision();if(candidate!=null)decision=decision.withMemory(candidate);return complete(initial,decision,total,steps,current,results,candidate,toolNames,callsMade,"completed",turnState);}

@@ -76,9 +76,12 @@ public class RuntimeGraphConfiguration {
     }
     @Bean public SocialToolExecutor socialToolExecutor(OneBotGateway gateway,AgentToolCatalog catalog,MemoryRepository memories,
             MemoryRecallPort retriever,MemoryPolicy policy,IdentityRegistry identities,RelationshipTermRegistry terms,
-            XingChenProperties p,StickerService stickers,SlangService slang,Clock clock,SimulationStateService simulation,OutboundExecutionService outbound) {
-        return new SocialToolExecutor(gateway,catalog,memories,retriever,policy,identities,terms,p.onebot().loginUserId(),stickers,slang,clock,simulation,outbound);
+            XingChenProperties p,StickerService stickers,SlangService slang,Clock clock,SimulationStateService simulation,OutboundExecutionService outbound,online.wanan.xingchen.adapter.onebot.QqImageInputService imageInputs) {
+        return new SocialToolExecutor(gateway,catalog,memories,retriever,policy,identities,terms,p.onebot().loginUserId(),stickers,slang,clock,simulation,outbound,imageInputs);
     }
+    @Bean @ConditionalOnMissingBean(online.wanan.xingchen.adapter.onebot.QqImageInputService.Downloader.class)
+    public online.wanan.xingchen.adapter.onebot.QqImageInputService.Downloader qqImageDownloader(){return new online.wanan.xingchen.adapter.onebot.SafeQqImageDownloader();}
+    @Bean public online.wanan.xingchen.adapter.onebot.QqImageInputService qqImageInputs(ConversationImageStore records,OneBotGateway gateway,online.wanan.xingchen.adapter.onebot.QqImageInputService.Downloader downloader){return new online.wanan.xingchen.adapter.onebot.QqImageInputService(records,gateway,downloader);}
     @Bean public AgentExecutor agentExecutor(online.wanan.xingchen.core.agent.ModelProvider provider,SocialToolExecutor tools,
             ContextBuilder contexts,AgentToolCatalog catalog,SecurityEventSink security,SqliteUsageLedger usage,
             SqliteAgentTraceStore traces,SqliteToolExecutionLedger ledger,TurnBoundaryObserver boundaryObserver) {
