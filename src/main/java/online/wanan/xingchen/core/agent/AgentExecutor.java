@@ -37,6 +37,7 @@ public final class AgentExecutor {
         return new AgentExecutor(provider,tools,contexts,catalog,security,maxToolSteps,maxContextTokens,maxToolResultChars,estimator,usageLedger,traceSink,durableLedger,boundaryObserver);
     }
     public AgentExecutionResult execute(AgentRequest initial){
+        var channel=initial.context().conversationIdentity();if(channel!=null&&!channel.equals(initial.actor().conversation().identity()))throw new SecurityException("current conversation context does not match actor");
         try (ToolExecutor.TurnScope ignored=tools.beginTurn(initial)) { return executeTurn(initial); }
     }
     private AgentExecutionResult executeTurn(AgentRequest initial){
@@ -78,7 +79,7 @@ public final class AgentExecutor {
         }
     }
     private ContextPackage rebuild(ContextPackage base,List<String> toolResults){
-        ContextBuildInput input=new ContextBuildInput(base.simulationPrompt(),base.persona(),base.actorId(),base.displayName(),base.relationshipAddress(),base.conversationId(),base.memories(),base.conversationSummary(),base.recentMessages(),base.taskState(),base.currentMessage(),base.toolDescription(),null,toolResults);
+        ContextBuildInput input=new ContextBuildInput(base.simulationPrompt(),base.persona(),base.actorId(),base.displayName(),base.relationshipAddress(),base.conversationId(),base.memories(),base.conversationSummary(),base.recentMessages(),base.taskState(),base.currentMessage(),base.toolDescription(),null,toolResults,base.conversationIdentity());
         return contexts.build(input);
     }
     private ModelToolResult bound(ModelToolResult result){String text=result.content();if(text.length()>maxToolResultChars)text=text.substring(0,maxToolResultChars);Map<String,Object> data=result.data();if(data.toString().length()>maxToolResultChars)data=Map.of("truncated",true,"summary",data.toString().substring(0,maxToolResultChars));return new ModelToolResult(result.toolCallId(),result.name(),result.success(),text,data);}

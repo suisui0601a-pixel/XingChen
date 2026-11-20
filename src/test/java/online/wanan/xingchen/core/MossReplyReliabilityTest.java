@@ -134,6 +134,65 @@ class MossReplyReliabilityTest {
         }finally{TestSqliteDatabase.clean(db);}
     }
 
+    @Test void modelRequestsCarryCurrentGroupAndPrivateTargetsThroughReadTools() {
+        var db=TestSqliteDatabase.create("moss-channel-targets");
+        try(var app=start(TestSqliteDatabase.jdbcUrl(db))){
+            var provider=app.getBean(MockModelProvider.class);var fake=app.getBean(FakeOneBotServer.class);
+            for(String type:List.of("group","private")){
+                String target=type.equals("private")?"member":"group-final";
+                int offset=provider.requests().size();
+                provider.enqueue(tool("channel-read-"+type,"qq.readRecent",Map.of("conversation",target,"limit",5)));
+                provider.enqueue(new ModelResponse(AgentDecision.text("channel fixture final"),null,null));
+                var result=handle(app,event(type,"channel-"+type));
+                assertThat(result.toolResult().success()).isTrue();
+                assertThat(provider.requests().subList(offset,provider.requests().size())).hasSize(2).allSatisfy(request->{
+                    var system=request.messages().stream().filter(m->m.role()==ModelRole.SYSTEM).map(ModelMessage::content).reduce("",(a,b)->a+"\n"+b);
+                    assertThat(system).contains("[Current Conversation]","conversationType="+type.toUpperCase(java.util.Locale.ROOT),"currentTargetKind="+type,"currentTargetId=\""+target+"\"");
+                });
+                assertThat(fake.lastRequest(type.equals("group")?"send_group_msg":"send_private_msg").path(type.equals("group")?"group_id":"user_id").asText()).isEqualTo(target);
+            }
+        }finally{TestSqliteDatabase.clean(db);}
+    }
+
+    @Test void senderIdentityIsNeverAcceptedAsCurrentGroupTarget() {
+        var db=TestSqliteDatabase.create("moss-channel-denied");
+        try(var app=start(TestSqliteDatabase.jdbcUrl(db))){
+            var provider=app.getBean(MockModelProvider.class);var fake=app.getBean(FakeOneBotServer.class);
+            provider.enqueue(tool("wrong-read-target","qq.readRecent",Map.of("conversation","qq:member","limit",5)));
+            provider.enqueue(tool("wrong-private-target","qq.send",Map.of("target","member","kind","private","text","must not cross scope")));
+            provider.enqueue(new ModelResponse(AgentDecision.text("no cross-target operation executed"),null,null));
+            var result=handle(app,event("group","channel-denied"));
+            assertThat(result.toolResult().success()).isFalse();
+            assertThat(result.toolResult().message()).isEqualTo("group destination must be current conversation");
+            assertThat(provider.requests()).hasSize(3);
+            assertThat(provider.requests().get(1).messages()).anySatisfy(m->{
+                assertThat(m.role()).isEqualTo(ModelRole.TOOL);assertThat(m.content()).contains("conversation scope denied");
+            });
+            assertThat(fake.actionCount("send_private_msg")).isZero();
+            assertThat(fake.actionCount("send_group_msg")).isEqualTo(1);
+        }finally{TestSqliteDatabase.clean(db);}
+    }
+
+    @Test void acceptedToolReplyCanFinishWithoutAnAdditionalReceiptMessage() {
+        var db=TestSqliteDatabase.create("moss-no-receipt-chat");
+        try(var app=start(TestSqliteDatabase.jdbcUrl(db))){
+            var provider=app.getBean(MockModelProvider.class);var fake=app.getBean(FakeOneBotServer.class);
+            provider.enqueue(tool("visible-reply","qq.send",Map.of("target","group-final","kind","group","text","the actual user-facing answer")));
+            provider.enqueue(new ModelResponse(AgentDecision.noReply(),null,null));
+            var result=handle(app,event("group","no-receipt-chat"));
+            assertThat(result.decision().type()).isEqualTo(DecisionType.NO_REPLY);
+            assertThat(result.toolResult().data()).containsEntry("target","group-final").containsEntry("kind","group").containsEntry("conversationType","GROUP");
+            assertThat(result.toolResult().data().get("messageId")).isNotNull().isNotEqualTo("group-final");
+            assertThat(app.getBean(org.springframework.jdbc.core.JdbcTemplate.class).queryForObject("SELECT provider_message_id FROM onebot_outbound_executions WHERE status='SUCCESS'",String.class)).isEqualTo(result.toolResult().data().get("messageId"));
+            assertThat(fake.appliedSendCount()).isEqualTo(1);
+            assertThat(provider.requests()).hasSize(2);
+            assertThat(provider.requests().get(1).messages()).anySatisfy(m->{
+                assertThat(m.role()).isEqualTo(ModelRole.SYSTEM);assertThat(m.content()).contains("return exactly NO_REPLY","Read-only tools do not deliver your answer","A genuinely new, useful follow-up is allowed");
+            });
+            assertThat(app.getBean(org.springframework.jdbc.core.JdbcTemplate.class).queryForObject("SELECT COUNT(*) FROM onebot_outbound_executions WHERE status='SUCCESS'",Integer.class)).isEqualTo(1);
+        }finally{TestSqliteDatabase.clean(db);}
+    }
+
     private static online.wanan.xingchen.core.conversation.OrchestrationResult handle(ConfigurableApplicationContext app,online.wanan.xingchen.core.model.PlatformEvent event){
         var orchestrator=app.getBean(ConversationOrchestrator.class);var prepared=orchestrator.prepare(event);
         if(!prepared.mayStartTurn())return orchestrator.handle(prepared,false,null,Set.of());

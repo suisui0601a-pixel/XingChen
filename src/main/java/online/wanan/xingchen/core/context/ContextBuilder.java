@@ -22,8 +22,8 @@ public final class ContextBuilder {
         String identity="actorId="+n(input.actorId())+"\ndisplayName="+n(input.displayName());
         String relationship="displayName="+n(input.displayName())+"\nassistantAddress="+n(input.address());
         String taskText=input.taskState().entrySet().stream().map(e->e.getKey()+"="+e.getValue()).reduce((a,b)->a+"\n"+b).orElse("");
-        String current=n(input.currentMessage()),tools=n(input.toolDescription());
-        int fixed=estimate(sim)+estimate(persona)+estimate(identity)+estimate(relationship)+estimate(current)+estimate(tools)+estimate(taskText);
+        String current=n(input.currentMessage()),tools=n(input.toolDescription()),channel=ConversationPromptContext.render(input.conversationIdentity());
+        int fixed=estimate(sim)+estimate(persona)+estimate(identity)+estimate(relationship)+estimate(current)+estimate(tools)+estimate(taskText)+estimate(channel);
         int summaryTokens=estimate(summary); int remaining=Math.max(0,budget.hardLimitTokens()-fixed-summaryTokens);
         List<Memory> selected=new ArrayList<>();int memoryTokens=0;
         for(Memory m:visible){int cost=estimate(m.content());if(memoryTokens+cost>budget.memoryTokenBudget()||memoryTokens+cost>remaining)continue;selected.add(m);memoryTokens+=cost;}
@@ -35,7 +35,7 @@ public final class ContextBuilder {
         LinkedList<String> recent=new LinkedList<>();int recentTokens=0;
         for(int i=recentCandidates.size()-1;i>=0;i--){String item=recentCandidates.get(i);int cost=estimate(item);if(recentTokens+cost>remaining)continue;recent.addFirst(item);recentTokens+=cost;}
         int total=fixed+summaryTokens+memoryTokens+toolTokens+recentTokens;
-        int calibratedTotal=calibratedEstimate(sim)+calibratedEstimate(persona)+calibratedEstimate(identity)+calibratedEstimate(relationship)+calibratedEstimate(current)+calibratedEstimate(tools)+calibratedEstimate(taskText)+calibratedEstimate(summary);
+        int calibratedTotal=calibratedEstimate(sim)+calibratedEstimate(persona)+calibratedEstimate(identity)+calibratedEstimate(relationship)+calibratedEstimate(current)+calibratedEstimate(tools)+calibratedEstimate(taskText)+calibratedEstimate(summary)+calibratedEstimate(channel);
         for(Memory m:selected)calibratedTotal+=calibratedEstimate(m.content());
         for(String item:toolResults)calibratedTotal+=calibratedEstimate(item);
         for(String item:recent)calibratedTotal+=calibratedEstimate(item);
@@ -43,7 +43,7 @@ public final class ContextBuilder {
         var diagnostics=new ContextDiagnostics(total,estimate(persona),estimate(sim),memoryTokens,recentTokens,summaryTokens,
                 selected.stream().map(Memory::id).toList(),input.memories().size()-selected.size(),status,toolTokens,calibratedTotal,Math.max(0,total-calibratedTotal));
         return new ContextPackage(persona,sim,n(input.actorId()),n(input.conversationId()),n(input.address()),List.copyOf(selected),
-                List.copyOf(recent),input.taskState(),current,total,status,n(input.displayName()),identity,relationship,summary,tools,diagnostics,List.copyOf(toolResults));
+                List.copyOf(recent),input.taskState(),current,total,status,n(input.displayName()),identity,relationship,summary,tools,diagnostics,List.copyOf(toolResults),input.conversationIdentity());
     }
     public SessionLifecycleStatus lifecycle(int tokens) {
         if (tokens > budget.hardLimitTokens()) return SessionLifecycleStatus.HARD_LIMIT;

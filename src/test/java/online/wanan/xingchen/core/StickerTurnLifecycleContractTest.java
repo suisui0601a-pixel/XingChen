@@ -54,6 +54,15 @@ class StickerTurnLifecycleContractTest {
         };
         return AgentExecutor.defaults(provider,fixture.tools(),new ContextBuilder(ContextBudget.defaults()),new InMemorySecurityEventSink());
     }
+    @Test void toolReceiptSeparatesConversationTargetFromProviderMessageId()throws Exception{
+        var f=fixture(Clock.systemUTC(),Duration.ZERO);
+        when(f.gateway().sendImageBytes(anyString(),anyString(),any())).thenReturn(new SendReceipt(true,"image","fixture-message-reference","accepted"));
+        var result=executor(f,1).execute(request("receipt-target"));
+        assertThat(result.toolResults()).singleElement().satisfies(r->{
+            assertThat(r.data()).containsEntry("target","synthetic-group").containsEntry("kind","group").containsEntry("conversationType","GROUP").containsEntry("messageId","fixture-message-reference");
+        });
+        verify(f.gateway(),times(1)).sendImageBytes(anyString(),anyString(),any());
+    }
     @Test void successiveAgentTurnsEachGetTheirOwnStickerAllowance()throws Exception{
         var f=fixture(Clock.systemUTC(),Duration.ZERO);var executor=executor(f,1);
         var first=executor.execute(request("event-one"));var second=executor.execute(request("event-two"));
