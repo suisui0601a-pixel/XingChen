@@ -23,6 +23,12 @@ import java.util.concurrent.atomic.AtomicLong;
 @Profile("runtime-test")
 @Import(RuntimeGraphConfiguration.class)
 public class TestRuntimeConfiguration {
+    /** Explicit deterministic fixture preset, not the production defaults contract. Preserve saved test settings on restart. */
+    @Bean public org.springframework.boot.ApplicationRunner deterministicSocialFixture(org.springframework.jdbc.core.JdbcTemplate jdbc,online.wanan.xingchen.console.SocialSettingsService settings,ObjectMapper json){return args->{
+        var values=new java.util.LinkedHashMap<String,Object>();((java.util.Map<?,?>)settings.global().get("values")).forEach((k,v)->values.put(k.toString(),v));
+        values.put("ordinaryMessageProbability",0.0);values.put("proactivePrivateEnabled",false);values.put("proactiveGroupEnabled",false);values.put("dailyGreetingsEnabled",false);values.put("nightReplyMuteEnabled",false);
+        jdbc.update("INSERT OR IGNORE INTO social_settings_global(singleton_id,revision,values_json,updated_at,updated_by) VALUES(1,0,?,?,?)",json.writeValueAsString(values),Instant.now().toString(),"isolated-fixture");
+    };}
     @Bean(destroyMethod="close") public FakeDshRc2Server fakeDshRc2Server() throws IOException { return new FakeDshRc2Server("fixture-launch-token"); }
     @Bean(destroyMethod="close") public FakeOneBotServer fakeOneBotServer() throws IOException { return new FakeOneBotServer(""); }
     @Bean public RuntimeIntegrationStatus runtimeIntegrationStatus() { return new RuntimeIntegrationStatus(false,false,false,false); }

@@ -33,6 +33,7 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
     private volatile online.wanan.xingchen.console.SocialSettingsService socialSettingsService;
     private volatile online.wanan.xingchen.console.AccessControlService accessControlService;
     private volatile ProactiveParticipationService proactive;
+    private java.time.Clock runtimeClock=java.time.Clock.systemUTC();
     private final ActiveTurnRegistry activeTurns=new ActiveTurnRegistry();
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -71,6 +72,13 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
     public void setSocialSettingsService(online.wanan.xingchen.console.SocialSettingsService service){this.socialSettingsService=Objects.requireNonNull(service);}
     public void setAccessControlService(online.wanan.xingchen.console.AccessControlService service){this.accessControlService=Objects.requireNonNull(service);}
     public void setProactiveService(ProactiveParticipationService service){this.proactive=Objects.requireNonNull(service);}
+    public void setRuntimeClock(java.time.Clock clock){this.runtimeClock=Objects.requireNonNull(clock);}
+    private boolean nightAllows(PlatformEvent event,java.util.UUID conversation){
+        var source=socialSettingsService;if(source==null||!source.schedule(conversation).muted(runtimeClock.instant()))return true;
+        boolean ownerPrivate=event.platform()==online.wanan.xingchen.core.model.Platform.QQ&&event.conversation().type()==online.wanan.xingchen.core.model.ConversationType.PRIVATE
+                &&resetOwnerQq!=null&&!resetOwnerQq.isBlank()&&resetOwnerQq.equals(event.actor().platformUserId());
+        return ownerPrivate||triggers.directMention(event);
+    }
 
     public synchronized void start() {
         if (!started.compareAndSet(false, true)) return;
@@ -169,6 +177,12 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
                 event.message(),event.eventType(),event.actorPlatformRole(),event.text(),event.timestamp(),event.rawMetadata(),event.details());
         var wake=triggers.evaluate(policyEvent,simulation.configuredSpeakers(state),settings);
         var wakeReasons=new java.util.LinkedHashSet<>(wake.reasons());
+        if(!nightAllows(policyEvent,actor.conversation().id())){
+            orchestrator.persistWakeReasons(event,actor.conversation().id(),java.util.Set.of("NIGHT_SILENCE"));
+            try{simulation.markRead(actor.conversation().id(),event.message().platformMessageId());}catch(IllegalArgumentException unorderable){LOG.log(System.Logger.Level.WARNING,"muted incoming cursor ordering unavailable");}
+            simulation.observeMutedIncoming(actor.conversation().id());
+            return true;
+        }
         boolean continuation=false;
         if(state.wakeState()==SimulationConversationState.WakeState.WAITING) {
             var resumed=simulation.continueWait(actor.conversation().id(),state.generation());
@@ -208,6 +222,7 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
         long activeGeneration=simulation.get(actor.conversation().id()).generation();
         var active=activeTurns.beginIfCurrent(actor.conversation().id(),logicalTurnId,activeGeneration,cancellation,()->simulation.get(actor.conversation().id()).generation());
         if(active==null)return false;
+        cancellation.generationFence(()->simulation.get(actor.conversation().id()).generation()==activeGeneration&&nightAllows(policyEvent,actor.conversation().id()));
         try {
             orchestrator.persistWakeReasons(event,actor.conversation().id(),wakeReasons);
             var result=orchestrator.handle(prepared,respond,state,wakeReasons,cancellation,settings);
@@ -228,7 +243,11 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
         var prepared=orchestrator.prepareRecovered(event);var actor=prepared.actor();
         var current=simulation.get(actor.conversation().id());String turnId=online.wanan.xingchen.storage.IncomingMessageStore.stableTurnId(online.wanan.xingchen.storage.IncomingMessageStore.executionKey(event,actor.conversation().id().toString()));
         if(current.generation()!=snapshot.generation()){turnJournal.markStale(turnId);return;}
-        try{if(turn.modelTurnState().equals("OUTPUT_EMITTED")){var decision=orchestrator.resumePersistedDecision(event,turn);if(decision==online.wanan.xingchen.core.agent.DecisionType.WAIT)simulation.waitForNextMessage(actor.conversation().id(),event.message().platformMessageId(),"next-message");}else orchestrator.handle(prepared,true,current,turn.wakeReasons());orchestrator.completeInbound(event,actor.conversation().id());}
+        // A restart must not bypass overnight silence or replay an interrupted effect later.
+        if(!nightAllows(event,actor.conversation().id())){turnJournal.interrupt(turnId);LOG.log(System.Logger.Level.INFO,"recovered turn interrupted by overnight silence; no replay");return;}
+        var cancellation=new online.wanan.xingchen.core.agent.CancellationToken();
+        cancellation.generationFence(()->simulation.get(actor.conversation().id()).generation()==snapshot.generation()&&nightAllows(event,actor.conversation().id()));
+        try{if(turn.modelTurnState().equals("OUTPUT_EMITTED")){var decision=orchestrator.resumePersistedDecision(event,turn,cancellation);if(decision==online.wanan.xingchen.core.agent.DecisionType.WAIT)cancellation.runWithCurrentGeneration(()->simulation.waitForNextMessage(actor.conversation().id(),event.message().platformMessageId(),"next-message"));}else orchestrator.handle(prepared,true,current,turn.wakeReasons(),cancellation);orchestrator.completeInbound(event,actor.conversation().id());}
         catch(RuntimeException|Error failure){orchestrator.failInbound(event,actor.conversation().id());throw failure;}
     }
 

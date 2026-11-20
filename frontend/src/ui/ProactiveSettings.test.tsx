@@ -6,9 +6,9 @@ import {SocialSettingsPage} from './SocialSettingsPage'
 import {api} from './api'
 vi.mock('./api',async original=>({...await original<typeof import('./api')>(),api:vi.fn()}))
 afterEach(()=>{cleanup();vi.resetAllMocks()})
-const values={...proactiveDefaults,mentionWake:true,replyToBotWake:true,pokeWake:true,botNameWake:true,botNameAliases:[],questionWake:true,configuredSpeakerWake:true,configuredSpeakerIds:[],ordinaryMessageProbability:0.2,maxReplyMessages:8,maxPerMinute:30,gapMillis:0}
+const values={...proactiveDefaults,proactivePrivateEnabled:false,proactiveGroupEnabled:false,mentionWake:true,replyToBotWake:true,pokeWake:true,botNameWake:true,botNameAliases:[],questionWake:true,configuredSpeakerWake:true,configuredSpeakerIds:[],ordinaryMessageProbability:0.2,maxReplyMessages:8,maxPerMinute:30,gapMillis:0}
 
-it('starts disabled and keeps proactive sampling independent of ordinary inbound probability',async()=>{
+it('honors an explicitly disabled saved policy and keeps proactive sampling independent of ordinary inbound probability',async()=>{
   vi.mocked(api).mockImplementation(async(_path,options)=>options?.method==='PATCH'?{revision:1,values} as never:{revision:0,values} as never)
   render(<MemoryRouter><SocialSettingsPage language="zh-CN"/></MemoryRouter>)
   const privateSwitch=await screen.findByRole('checkbox',{name:'允许私聊主动冒泡'})
@@ -37,4 +37,17 @@ it('English guidance does not claim the timer is unavailable',()=>{
   render(<ProactiveSettings values={values} onChange={vi.fn()} zh={false}/>)
   expect(screen.getByText('Idle proactive participation')).toBeInTheDocument()
   expect(screen.getByText(/four model attempts per hour/)).toBeInTheDocument()
+})
+
+it('exposes the public schedule preset and sends time and silence edits through the settings API',async()=>{
+  expect(proactiveDefaults).toMatchObject({proactivePrivateEnabled:true,proactiveGroupEnabled:true,proactiveProbability:.3,proactiveIntervalMinutes:120,dailyGreetingsEnabled:true,morningGreetingTime:'07:00',eveningGreetingTime:'22:50',nightReplyStartHour:0,nightReplyEndHour:6})
+  vi.mocked(api).mockImplementation(async()=>({revision:0,values:{...values,...proactiveDefaults}}) as never)
+  render(<MemoryRouter><SocialSettingsPage language="zh-CN"/></MemoryRouter>)
+  expect(await screen.findByRole('checkbox',{name:'允许私聊主动冒泡'})).toBeChecked()
+  fireEvent.change(screen.getByLabelText('早安时间'),{target:{value:'07:15'}})
+  fireEvent.click(screen.getByRole('checkbox',{name:'凌晨普通消息静默'}))
+  fireEvent.click(screen.getByRole('button',{name:'保存主动冒泡设置'}))
+  await waitFor(()=>expect(api).toHaveBeenCalledWith('/api/social-settings/global',expect.objectContaining({method:'PATCH'})))
+  const call=vi.mocked(api).mock.calls.find(([,o])=>o?.method==='PATCH')!
+  expect(JSON.parse(String(call[1]!.body)).values).toMatchObject({morningGreetingTime:'07:15',nightReplyMuteEnabled:false,proactiveProbability:.3})
 })

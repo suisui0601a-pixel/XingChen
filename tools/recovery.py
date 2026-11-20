@@ -20,7 +20,7 @@ import tempfile
 import uuid
 
 FORMAT = 1
-SCHEMA = 29
+SCHEMA = 30
 DB = "db/xingchen.db"
 COMPONENTS = ("config", "secrets", "assets", "prompts")
 MAX_FILES = 100000

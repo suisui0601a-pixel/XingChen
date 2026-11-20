@@ -238,6 +238,89 @@ class ProactiveParticipationRuntimeTest {
         emit("group","2202","fresh post-reset chat");clock.advance(Duration.ofMinutes(5));text("timer-group","fresh timer answer");timer.tick();done();
         assertThat(model.requests()).hasSize(2);assertThat(fake.sendReceiveCount()).isEqualTo(1);
     }
+    @Test void morningGreetingBypassesRandomQuietAndProbabilityButIsDurableOncePerDay()throws Exception{
+        seed("private","2300");seed("group","2301");enable();
+        configure(Map.of("dailyGreetingsEnabled",true,"proactiveProbability",0.0,"proactiveQuietStartHour",23,"proactiveQuietEndHour",8,"nightReplyMuteEnabled",true));
+        clock.now=Instant.parse("2026-11-20T23:00:00Z"); // 07:00 Shanghai next day
+        text("timer-user","synthetic morning private");text("timer-group","synthetic morning group");timer.tick();done();
+        assertThat(fake.sendReceiveCount()).isEqualTo(2);assertThat(app.getBean(Draws.class).calls).isZero();
+        for(var request:model.requests().subList(1,3))assertThat(request.context().taskState()).containsEntry("proactive.kind","MORNING").containsEntry("turn.hasNewUserMessage","false");
+        assertThat(jdbc.queryForList("SELECT intent FROM proactive_attempts",String.class)).containsOnly("MORNING");
+        timer.tick();done();assertThat(fake.sendReceiveCount()).isEqualTo(2);
+        app.close();app=null;start();clock.now=Instant.parse("2026-11-20T23:01:00Z");timer.tick();done();
+        assertThat(model.requests()).isEmpty();assertThat(fake.sendReceiveCount()).isZero();assertThat(attempts()).isEqualTo(2);
+    }
+    @Test void eveningGreetingDoesNotBorrowRandomCooldownAndMissedGreetingsAreNotReplayed()throws Exception{
+        seed("group","2400");enable();configure(Map.of("dailyGreetingsEnabled",true,"proactiveIntervalMinutes",120,"proactiveCooldownMinutes",120));
+        clock.now=Instant.parse("2026-11-20T14:00:00Z");text("timer-group","random at 22");timer.tick();done();
+        clock.advance(Duration.ofMinutes(50));text("timer-group","evening at 22:50");timer.tick();done();
+        assertThat(fake.sendReceiveCount()).isEqualTo(2);assertThat(model.requests().getLast().context().taskState()).containsEntry("proactive.kind","EVENING");
+        assertThat(jdbc.queryForList("SELECT intent FROM proactive_attempts ORDER BY checked_at",String.class)).containsExactly("RANDOM","EVENING");
+        configure(Map.of("proactiveQuietStartHour",23,"proactiveQuietEndHour",8));clock.advance(Duration.ofMinutes(10));timer.tick();done();assertThat(model.requests()).hasSize(2);
+        clock.now=Instant.parse("2026-11-20T23:10:00Z");timer.tick();done();assertThat(model.requests()).hasSize(2);
+    }
+    @Test void greetingStillHonorsWaitAndUnknownIsNotRetriedAfterRestart()throws Exception{
+        seed("group","2500");enable();configure(Map.of("dailyGreetingsEnabled",true,"proactiveProbability",0.0));
+        UUID id=conversation("GROUP","timer-group");var simulation=app.getBean(SimulationStateService.class);simulation.waitForNextMessage(id,"waiting","fixture");
+        clock.now=Instant.parse("2026-11-20T23:00:00Z");timer.tick();done();assertThat(attempts()).isZero();assertThat(model.requests()).isEmpty();
+        simulation.reset(id);simulation.markRead(id,"2500");text("timer-group","uncertain morning");fake.sendBehavior(FakeOneBotServer.SendBehavior.DROP_AFTER_RECEIVE);timer.tick();done();
+        assertThat(fake.sendReceiveCount()).isEqualTo(1);assertThat(jdbc.queryForObject("SELECT status FROM proactive_attempts",String.class)).isEqualTo("UNKNOWN");
+        app.close();app=null;start();clock.now=Instant.parse("2026-11-20T23:01:00Z");timer.tick();done();assertThat(model.requests()).isEmpty();assertThat(fake.sendReceiveCount()).isZero();
+    }
+    @Test void concurrentGreetingAdmissionAndSharedGreetingBudgetRemainBounded()throws Exception{
+        seed("group","2600");enable();clock.now=Instant.parse("2026-11-20T23:00:00Z");configure(Map.of("dailyGreetingsEnabled",true));
+        var store=app.getBean(ProactiveAttemptStore.class);var c=store.candidates(clock.instant(),"").getFirst();var p=settings.proactive(c.conversationId());var intent=settings.schedule(c.conversationId()).due(clock.instant()).getFirst();
+        try(var workers=Executors.newFixedThreadPool(8)){
+            var barrier=new CyclicBarrier(8);var calls=new ArrayList<Future<String>>();for(int i=0;i<8;i++)calls.add(workers.submit(()->{barrier.await();return store.reserveGreeting(c,p,clock.instant(),intent);}));
+            int admitted=0;for(var call:calls)if(call.get(10,TimeUnit.SECONDS)!=null)admitted++;assertThat(admitted).isEqualTo(1);
+        }
+        for(int i=0;i<3;i++){UUID id=app.getBean(IdentityRegistry.class).identifyConversation(new ConversationIdentity(Platform.QQ,ConversationType.GROUP,"greeting-budget-"+i)).id();assertThat(store.reserveGreeting(new ProactiveAttemptStore.Candidate(id,c.anchor()),p,clock.instant(),intent)).isNotNull();}
+        UUID extra=conversation("GROUP","greeting-budget-extra");assertThat(store.reserveGreeting(new ProactiveAttemptStore.Candidate(extra,c.anchor()),p,clock.instant(),intent)).isNull();assertThat(attempts()).isEqualTo(4);
+    }
+    void inboundAs(String kind,String user,String id,String text,String mention)throws Exception{
+        var segments=new ArrayList<Map<String,Object>>();if(mention!=null)segments.add(Map.of("type","at","data",Map.of("qq",mention)));segments.add(Map.of("type","text","data",Map.of("text",text)));
+        fake.emit(new ObjectMapper().writeValueAsString(Map.of("post_type","message","message_type",kind,"self_id","test-bot","group_id","timer-group","user_id",user,"message_id",id,"time",clock.instant().getEpochSecond(),"sender",Map.of("user_id",user,"nickname","Synthetic Member","role","member"),"message",segments)));
+        await(()->jdbc.queryForObject("SELECT COUNT(*) FROM inbound_turn_executions WHERE incoming_event_id=? AND status='COMPLETED'",Integer.class,id)==1);
+    }
+    @Test void overnightOnlyDirectMentionOrConfiguredOwnerPrivateCanReachModel()throws Exception{
+        configure(Map.of("nightReplyMuteEnabled",true,"ordinaryMessageProbability",1.0,"configuredSpeakerIds",List.of("QQ:timer-user")));
+        clock.now=Instant.parse("2026-11-20T16:00:00Z"); // 00:00
+        inboundAs("private","timer-user","2700","ordinary private?",null);
+        inboundAs("group","timer-user","2701","大肥鱼 question?",null);
+        inboundAs("group","synthetic-owner","2702","owner group?",null);
+        inboundAs("group","timer-user","2703","wrong mention?","other-bot");
+        assertThat(model.requests()).isEmpty();assertThat(fake.sendReceiveCount()).isZero();
+        assertThat(jdbc.queryForList("SELECT wake_reasons_json FROM durable_turn_executions",String.class)).hasSize(4).allMatch(s->s.contains("NIGHT_SILENCE"));
+        text("synthetic-owner","owner private allowed");inboundAs("private","synthetic-owner","2704","owner ordinary",null);
+        text("timer-group","direct mention allowed");inboundAs("group","timer-user","2705","direct mention","test-bot");
+        assertThat(model.requests()).hasSize(2);assertThat(fake.sendReceiveCount()).isEqualTo(2);
+        clock.advance(Duration.ofHours(6));text("timer-user","after 06 private");inboundAs("private","timer-user","2706","normal private",null);
+        assertThat(model.requests()).hasSize(3);assertThat(fake.sendReceiveCount()).isEqualTo(3);
+    }
+    @Test void mutedOrdinaryInputDoesNotConsumeWaitAndAtStillResumesIt()throws Exception{
+        seed("group","2800");configure(Map.of("nightReplyMuteEnabled",true));var state=app.getBean(SimulationStateService.class);UUID id=conversation("GROUP","timer-group");state.waitForNextMessage(id,"2800","next-message");
+        clock.now=Instant.parse("2026-11-20T17:00:00Z");inboundAs("group","timer-user","2801","question?",null);
+        assertThat(state.get(id).wakeState()).isEqualTo(SimulationConversationState.WakeState.WAITING);assertThat(model.requests()).isEmpty();
+        text("timer-group","allowed wait continuation");inboundAs("group","timer-user","2802","continue","test-bot");assertThat(model.requests()).hasSize(1);assertThat(fake.sendReceiveCount()).isEqualTo(1);
+    }
+    @Test void midnightFenceBlocksLateOrdinaryReplyButDoesNotRetryIt()throws Exception{
+        configure(Map.of("nightReplyMuteEnabled",true));clock.now=Instant.parse("2026-11-20T15:59:00Z");
+        var barrier=model.enqueueBlockedFor("timer-user",new ModelResponse(AgentDecision.text("late ordinary reply"),null,null));
+        fake.emit(new ObjectMapper().writeValueAsString(Map.of("post_type","message","message_type","private","self_id","test-bot","user_id","timer-user","message_id","2900","time",clock.instant().getEpochSecond(),"message","ordinary private")));
+        assertThat(barrier.awaitStarted(5,TimeUnit.SECONDS)).isTrue();clock.advance(Duration.ofMinutes(1));barrier.release();
+        await(()->runtime.queueDiagnostics().activeConversationCount()==0);assertThat(fake.sendReceiveCount()).isZero();assertThat(model.requests()).hasSize(1);
+    }
+    @Test void runtimeRestartCannotResumePersistedOrdinaryOutputDuringNightSilence()throws Exception{
+        seed("private","3000");configure(Map.of("nightReplyMuteEnabled",true));runtime.stop();
+        UUID id=conversation("PRIVATE","timer-user");long generation=app.getBean(SimulationStateService.class).get(id).generation();
+        // Simulate the established safe-recovery point: output durable, no transport or tool claim.
+        jdbc.update("UPDATE durable_turn_executions SET status='RUNNING',model_turn_state='OUTPUT_EMITTED',output_type='TEXT_REPLY',output_json='[\"synthetic pending output\"]',generation=? WHERE incoming_event_id='3000'",generation);
+        jdbc.update("UPDATE inbound_turn_executions SET status='CLAIMED' WHERE incoming_event_id='3000'");
+        clock.now=Instant.parse("2026-11-20T17:00:00Z");runtime.start();
+        await(()->jdbc.queryForObject("SELECT status FROM durable_turn_executions WHERE incoming_event_id='3000'",String.class).equals("INTERRUPTED"));
+        assertThat(model.requests()).hasSize(1);assertThat(fake.sendReceiveCount()).isZero();
+        clock.advance(Duration.ofHours(6));runtime.stop();runtime.start();assertThat(fake.sendReceiveCount()).isZero();assertThat(model.requests()).hasSize(1);
+    }
     static void await(BooleanSupplier condition)throws InterruptedException{long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(10);while(!condition.getAsBoolean()&&System.nanoTime()<end)Thread.sleep(10);assertThat(condition.getAsBoolean()).isTrue();}
     static void awaitUnchecked(BooleanSupplier condition){try{await(condition);}catch(InterruptedException e){Thread.currentThread().interrupt();throw new AssertionError(e);}}
     static final class TestClock extends Clock {

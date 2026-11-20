@@ -2,9 +2,20 @@
 
 ## Unreleased
 
+### Changed
+
+- Public social preset: 5% interjection, private/group proactive enabled, 30% sampling
+  every 120 minutes outside 23:00–08:00 (Asia/Shanghai), daily greetings at 07:00
+  and 22:50, and ordinary inbound silence 00:00–06:00 except direct bot mentions
+  and configured Owner private chat. Existing access and send protections remain.
+- V30 backs up existing social policy and replaces matching manual values and
+  conversation overrides once. Later administrator edits persist across restart.
+  Greetings use durable per-day keys and independent bounded hourly budgets.
+  Recovery tools now require schema 30; retain a verified pre-upgrade backup.
+
 ### Added
 
-- Opt-in idle proactive participation for private and group conversations, with
+- Configurable idle proactive participation for private and group conversations, with
   independent policy, quiet hours, cooldown, durable admission and daily/global budgets.
 - Reuse conversation lanes and the outbound ledger without fabricating inbound
   messages. New input cancels pending idle intent; crashed/UNKNOWN attempts never replay.
@@ -22,7 +33,7 @@
   positive ordinary-message probability previously selected every eligible event.
   Use the default random source; keep deterministic RNGs confined to tests.
 - Clarify that probability-based participation requires a new inbound message and
-  is disabled by default. Idle proactive messaging now has separate opt-in settings.
+  defaults to 5%. Idle proactive messaging has independent settings.
 - Keep final text dispatch independent of tool-result bookkeeping, while retaining
   per-tool and per-output ledger keys. Stop automatic continuation after UNKNOWN
   tool delivery rather than risking a second send.

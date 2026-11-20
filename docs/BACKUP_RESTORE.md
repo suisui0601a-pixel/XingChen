@@ -4,7 +4,7 @@
 
 先停止自己的 XingChen Core，保留数据卷；不要 `down -v`。`DataPathResolver` 与工具在 `db/.xingchen-xingchen.db.lock` 使用相同 POSIX byte-range 锁。运行中的 Core 会令工具拒绝操作。其他绕过该锁的脚本不得同时写入。
 
-当前 format 1 工具只接受 schema 29，未知 future format/schema、旧格式均拒绝；没有 silent best-effort upgrade。schema 28 的升级前备份必须使用匹配旧镜像的旧版工具验证与恢复，再规划 V29 升级。恢复后使用与备份相同的经过验证的 image/revision。应用版本与 revision 是操作者传入的明确构建元数据，必须从实际 image label 核对，不是工具自行探测。
+当前 format 1 工具只接受 schema 30，未知 future format/schema、旧格式均拒绝；没有 silent best-effort upgrade。schema 29 的升级前备份必须使用匹配旧镜像的旧版工具验证与恢复，再规划 V30 升级。恢复后使用与备份相同的经过验证的 image/revision。应用版本与 revision 是操作者传入的明确构建元数据，必须从实际 image label 核对，不是工具自行探测。
 
 Bundle 是目录，不是任意 tar 解包：`manifest.json`、`checksums.sha256`、`data/db/xingchen.db`、`data/config`、`data/assets` 等。payload 与 manifest 全部 SHA-256，完整覆盖、大小、DB integrity/FK 和 schema 都校验。checksums 文件不自签名；外部可信校验/加密是运营责任。
 

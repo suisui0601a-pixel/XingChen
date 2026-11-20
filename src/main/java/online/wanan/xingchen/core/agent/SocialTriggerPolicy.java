@@ -11,6 +11,7 @@ public final class SocialTriggerPolicy {
     public SocialTrigger evaluate(PlatformEvent event){
         return evaluate(event,Set.of()).trigger();
     }
+    public boolean directMention(PlatformEvent event){return !botId.isBlank()&&event.details().mentionIds().contains(botId);}
     public WakeDecision evaluate(PlatformEvent event,Collection<String> configuredSpeakers){
         return evaluate(event,configuredSpeakers,null);
     }

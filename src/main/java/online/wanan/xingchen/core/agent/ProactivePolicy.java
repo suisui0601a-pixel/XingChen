@@ -4,7 +4,7 @@ import java.time.*;
 import java.util.Map;
 import online.wanan.xingchen.core.model.ConversationType;
 
-/** Independent opt-in policy for idle conversations; ordinary inbound probability is unrelated. */
+/** Independent idle policy for idle conversations; ordinary inbound probability is unrelated. */
 public record ProactivePolicy(boolean privateEnabled, boolean groupEnabled, int idleMinutes,
         int intervalMinutes, int cooldownMinutes, double probability, int maxPerDay,
         int quietStartHour, int quietEndHour, String zoneId) {
@@ -17,11 +17,12 @@ public record ProactivePolicy(boolean privateEnabled, boolean groupEnabled, int 
     }
     public ProactivePolicy {
         if(idleMinutes<5||idleMinutes>1440||intervalMinutes<5||intervalMinutes>1440||cooldownMinutes<30||cooldownMinutes>10080
-                ||!Double.isFinite(probability)||probability<0||probability>1||maxPerDay<1||maxPerDay>6
+                ||!Double.isFinite(probability)||probability<0||probability>1||maxPerDay<1||maxPerDay>12
                 ||quietStartHour<0||quietStartHour>23||quietEndHour<0||quietEndHour>23)throw new IllegalArgumentException("invalid proactive policy");
         ZoneId.of(zoneId);
     }
-    public boolean enabled(ConversationType type){return probability>0&&(type==ConversationType.PRIVATE?privateEnabled:type==ConversationType.GROUP&&groupEnabled);}
+    public boolean scopeEnabled(ConversationType type){return type==ConversationType.PRIVATE?privateEnabled:type==ConversationType.GROUP&&groupEnabled;}
+    public boolean enabled(ConversationType type){return probability>0&&scopeEnabled(type);}
     public boolean quiet(Instant now){int hour=now.atZone(ZoneId.of(zoneId)).getHour();return quietStartHour!=quietEndHour&&(quietStartHour<quietEndHour?hour>=quietStartHour&&hour<quietEndHour:hour>=quietStartHour||hour<quietEndHour);}
     private static int number(Map<String,Object> values,String key){return ((Number)values.get(key)).intValue();}
 }
