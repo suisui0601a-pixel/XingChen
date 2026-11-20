@@ -37,6 +37,9 @@ public final class AgentExecutor {
         return new AgentExecutor(provider,tools,contexts,catalog,security,maxToolSteps,maxContextTokens,maxToolResultChars,estimator,usageLedger,traceSink,durableLedger,boundaryObserver);
     }
     public AgentExecutionResult execute(AgentRequest initial){
+        try (ToolExecutor.TurnScope ignored=tools.beginTurn(initial)) { return executeTurn(initial); }
+    }
+    private AgentExecutionResult executeTurn(AgentRequest initial){
         List<String> toolContext=new ArrayList<>();List<ModelToolResult> results=new ArrayList<>();List<ModelMessage> transcript=new ArrayList<>();List<String> toolNames=new ArrayList<>();ModelUsage total=new ModelUsage(0,0,0,0,0,"unknown","unknown",0);MemoryCandidate candidate=null;int steps=0,callsMade=0;String turnId=initial.turnId()==null||initial.turnId().isBlank()?(initial.eventId()==null||initial.eventId().isBlank()?UUID.randomUUID().toString():initial.eventId()):initial.turnId();ModelTurnExecutionState turnState=new ModelTurnExecutionState(initial.turnStateObserver());
         ModelProvider turnProvider=provider.snapshot();if(!turnProvider.available())return stopped(initial,initial.context(),total,0,results,null,toolNames,0,turnProvider.unavailableReason());
         ContextPackage current=initial.context();transcript.addAll(new ModelRequest(current,catalog.available(initial.availableCapabilities())).messages());

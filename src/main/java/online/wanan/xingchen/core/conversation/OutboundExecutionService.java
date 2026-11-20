@@ -56,7 +56,7 @@ public final class OutboundExecutionService {
             else if(receipt.status()==DeliveryStatus.ACCEPTED){
                 repository.complete(executionKey,OutboundExecutionRecord.Status.SUCCESS,receipt.target(),null,clock.instant());
             } else if(receipt.status()==DeliveryStatus.REJECTED){
-                repository.complete(executionKey,OutboundExecutionRecord.Status.FAILED,null,"onebot-rejected",clock.instant());
+                repository.complete(executionKey,OutboundExecutionRecord.Status.FAILED,null,rejectionLabel(receipt),clock.instant());
             } else {
                 repository.complete(executionKey,OutboundExecutionRecord.Status.UNKNOWN,null,"delivery-unconfirmed",clock.instant());
             }
@@ -67,4 +67,16 @@ public final class OutboundExecutionService {
     }
 
     @FunctionalInterface public interface SendOperation { SendReceipt send(); }
+    private static String rejectionLabel(SendReceipt receipt){
+        if(!"sticker".equals(receipt.operation()))return "onebot-rejected";
+        return switch(Objects.requireNonNullElse(receipt.content(),"")){
+            case "per-turn limit"->"sticker-per-turn-limit";
+            case "repetition penalty"->"sticker-repetition-penalty";
+            case "cooldown"->"sticker-cooldown";
+            case "sticker disabled"->"sticker-disabled";
+            case "sticker asset unavailable"->"sticker-asset-unavailable";
+            case "sticker integrity mismatch"->"sticker-integrity-mismatch";
+            default->"onebot-rejected";
+        };
+    }
 }
