@@ -50,11 +50,16 @@ public final class OneBotEventNormalizer {
                 default -> { }
             }
         } else body.append(text(root,"raw_message",text(root,"message","")));
+        boolean imageOnly=!images.isEmpty()&&!online.wanan.xingchen.core.agent.SocialTriggerPolicy.hasVisibleText(body.toString());
+        boolean imageRecordOnly=!images.isEmpty()&&online.wanan.xingchen.core.agent.ImageRecognitionIntent.recordOnly(body.toString());
+        if(!images.isEmpty())body.append("\n[图片 ").append(images.size()).append(" 张，已记录，尚未识别]");
         if(post.equals("notice")) body.setLength(0);
         Map<String,Object> raw=new LinkedHashMap<>(); raw.put("postType",post); raw.put("noticeType",text(root,"notice_type","")); raw.put("subType",text(root,"sub_type",""));
         if(root.has("message_seq"))raw.put("message_seq",root.path("message_seq").asText());else if(root.has("sequence"))raw.put("sequence",root.path("sequence").asText());else if(root.has("event_sequence"))raw.put("event_sequence",root.path("event_sequence").asText());
         raw.put("senderCard",text(sender,"card","")); raw.put("senderRole",role);
         raw.put("segments",metadataSegments); raw.put("mentions",mentions); raw.put("images",images); raw.put("forwards",forwards);
+        if(!images.isEmpty())raw.put("imageOnly",imageOnly);
+        if(imageRecordOnly)raw.put("imageRecordOnly",true);
         if(root.has("target_id")) raw.put("pokeTargetId",text(root,"target_id",""));
         if(root.has("operator_id")) raw.put("operatorId",text(root,"operator_id",""));
         Map<String,Object> frozen=Map.copyOf(raw);

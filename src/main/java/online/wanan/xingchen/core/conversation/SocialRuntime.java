@@ -177,6 +177,11 @@ public final class SocialRuntime implements AutoCloseable,ConversationControlPor
                 event.message(),event.eventType(),event.actorPlatformRole(),event.text(),event.timestamp(),event.rawMetadata(),event.details());
         var wake=triggers.evaluate(policyEvent,simulation.configuredSpeakers(state),settings);
         var wakeReasons=new java.util.LinkedHashSet<>(wake.reasons());
+        if(Boolean.TRUE.equals(event.rawMetadata().get("imageOnly"))||Boolean.TRUE.equals(event.rawMetadata().get("imageRecordOnly"))){
+            orchestrator.persistWakeReasons(event,actor.conversation().id(),java.util.Set.of("IMAGE_RECORDED_ONLY"));
+            orchestrator.handle(prepared,false,state,java.util.Set.of("IMAGE_RECORDED_ONLY"));
+            return true;
+        }
         if(!nightAllows(policyEvent,actor.conversation().id())){
             orchestrator.persistWakeReasons(event,actor.conversation().id(),java.util.Set.of("NIGHT_SILENCE"));
             try{simulation.markRead(actor.conversation().id(),event.message().platformMessageId());}catch(IllegalArgumentException unorderable){LOG.log(System.Logger.Level.WARNING,"muted incoming cursor ordering unavailable");}
