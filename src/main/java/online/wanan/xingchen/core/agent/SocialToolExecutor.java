@@ -85,7 +85,8 @@ public final class SocialToolExecutor implements ToolExecutor {
         String callIdentity=call.callId()==null||call.callId().isBlank()?call.name()+":"+digest(call.arguments()):call.callId();
         long generation=simulation==null?0:simulation.get(request.actor().conversation().id()).generation();
         String key=conversation+":"+turn+":"+callIdentity;
-        var record=outbound.dispatch(key,request.actor().conversation().id(),turn,generation,callIdentity,target,operation::get);
+        String contextText=switch(call.name()){case "qq.send","qq.reply"->arg(call,"text");case "sticker.send"->"[已发送本地表情，资源ID="+arg(call,"stickerId")+"]";default->null;};
+        var record=outbound.dispatch(key,request.actor().conversation().id(),turn,generation,callIdentity,target,()->null,operation::get,contextText,contextText==null?null:call.name().equals("sticker.send")?"STICKER":"TEXT");
         DeliveryStatus status=switch(record.status()){case SUCCESS->DeliveryStatus.ACCEPTED;case FAILED->DeliveryStatus.REJECTED;case UNKNOWN,PENDING->DeliveryStatus.UNKNOWN;};
         return receipt(new SendReceipt(status==DeliveryStatus.ACCEPTED,"tool-outbound",Objects.toString(record.providerMessageId(),target),Objects.toString(record.failureReason(),""),status),request,call,target);
     }

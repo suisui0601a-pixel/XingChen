@@ -43,13 +43,13 @@ public final class AgentExecutor {
     private AgentExecutionResult executeTurn(AgentRequest initial){
         List<String> toolContext=new ArrayList<>();List<ModelToolResult> results=new ArrayList<>();List<ModelMessage> transcript=new ArrayList<>();List<String> toolNames=new ArrayList<>();ModelUsage total=new ModelUsage(0,0,0,0,0,"unknown","unknown",0);MemoryCandidate candidate=null;int steps=0,callsMade=0;String turnId=initial.turnId()==null||initial.turnId().isBlank()?(initial.eventId()==null||initial.eventId().isBlank()?UUID.randomUUID().toString():initial.eventId()):initial.turnId();ModelTurnExecutionState turnState=new ModelTurnExecutionState(initial.turnStateObserver());
         ModelProvider turnProvider=provider.snapshot();if(!turnProvider.available())return stopped(initial,initial.context(),total,0,results,null,toolNames,0,turnProvider.unavailableReason());
-        ContextPackage current=initial.context();transcript.addAll(new ModelRequest(current,catalog.available(initial.availableCapabilities())).messages());
+        ContextPackage current=initial.context();
         for(;;){
             current=rebuild(initial.context(),toolContext);
             if(current.estimatedTokens()>maxContextTokens)return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"context-token-limit");
             int fullToolTokens=toolContext.stream().mapToInt(estimator::estimate).sum();if(fullToolTokens>current.diagnostics().toolResultTokens())return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"tool-result-token-limit");
-            transcript.set(0,new ModelRequest(current,catalog.available(initial.availableCapabilities())).messages().getFirst());
-            initial.cancellationToken().throwIfCancelled();if(turnState.state()==ModelTurnExecutionState.State.NOT_STARTED)turnState.begin();ModelRequest request=new ModelRequest(current,catalog.available(initial.availableCapabilities()),List.copyOf(transcript),1024,initial.cancellationToken(),turnState);
+            var requestMessages=new ArrayList<>(new ModelRequest(current,catalog.available(initial.availableCapabilities())).messages());requestMessages.addAll(transcript);
+            initial.cancellationToken().throwIfCancelled();if(turnState.state()==ModelTurnExecutionState.State.NOT_STARTED)turnState.begin();ModelRequest request=new ModelRequest(current,catalog.available(initial.availableCapabilities()),List.copyOf(requestMessages),1024,initial.cancellationToken(),turnState);
             ModelResponse response;
             try{response=turnProvider.stream(request,event->{});}catch(java.util.concurrent.CancellationException ex){return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"cancelled");}
             if(initial.cancellationToken().isCancelled())return stopped(initial,current,total,steps,results,candidate,toolNames,callsMade,"cancelled");
@@ -79,7 +79,7 @@ public final class AgentExecutor {
         }
     }
     private ContextPackage rebuild(ContextPackage base,List<String> toolResults){
-        ContextBuildInput input=new ContextBuildInput(base.simulationPrompt(),base.persona(),base.actorId(),base.displayName(),base.relationshipAddress(),base.conversationId(),base.memories(),base.conversationSummary(),base.recentMessages(),base.taskState(),base.currentMessage(),base.toolDescription(),null,toolResults,base.conversationIdentity());
+        ContextBuildInput input=new ContextBuildInput(base.simulationPrompt(),base.persona(),base.actorId(),base.displayName(),base.relationshipAddress(),base.conversationId(),base.memories(),base.conversationSummary(),base.recentMessages(),base.taskState(),base.currentMessage(),base.toolDescription(),null,toolResults,base.conversationIdentity(),base.historyMessages());
         return contexts.build(input);
     }
     private ModelToolResult bound(ModelToolResult result){String text=result.content();if(text.length()>maxToolResultChars)text=text.substring(0,maxToolResultChars);Map<String,Object> data=result.data();if(data.toString().length()>maxToolResultChars)data=Map.of("truncated",true,"summary",data.toString().substring(0,maxToolResultChars));return new ModelToolResult(result.toolCallId(),result.name(),result.success(),text,data);}

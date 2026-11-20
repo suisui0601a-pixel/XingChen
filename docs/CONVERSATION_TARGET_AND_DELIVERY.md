@@ -18,8 +18,6 @@ MossReplyReliabilityTest 使用 MockModelProvider、FakeOneBot 和隔离 SQLite�
 
 StickerTurnLifecycleContractTest 验证工具结果的真实目的地与提供方消息编号分离；不改变表情的每回合限制、冷却或 UNKNOWN 处理。
 
-## 不在本补丁中的历史上下文能力
+## 后续持久化上下文修复
 
-当前普通回合仍依赖进程内 ConversationWindow；完整的双向、可重启恢复的对话历史尚未统一实现。最终文字 journal、发送工具与消息列表并非同一份完整聊天日志。长期记忆需要显式的受控写入，并非自动保存所有发言。更换 Persona/Simulation 不会自动迁移旧服务的记忆。
-
-本补丁没有修改私人提示词、长期记忆、访问控制、唤醒概率、数据库 migration 或网关登录态。上下文持久化、角色完整性和历史数据迁移需要独立回归，不能以本补丁通过测试为依据宣布它们已经修复。
+双向历史、当前输入去重、重启读取、reset 边界与出站证据已由后续修复补齐，详见 [双向持久化会话上下文](DURABLE_CONVERSATION_CONTEXT.md)。历史迁移和自动语义摘要不在其中；更换 Persona/Simulation 不会自动迁移旧服务记忆。

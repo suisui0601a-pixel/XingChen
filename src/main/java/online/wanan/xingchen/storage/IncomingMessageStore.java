@@ -14,8 +14,11 @@ import java.util.UUID;
 
 @Repository
 public class IncomingMessageStore {
-    private final JdbcTemplate jdbc; private final ObjectMapper mapper; private final DurableTurnExecutionStore turns;
-    public IncomingMessageStore(JdbcTemplate jdbc,ObjectMapper mapper,DurableTurnExecutionStore turns){this.jdbc=jdbc;this.mapper=mapper;this.turns=turns;}
+    private final JdbcTemplate jdbc; private final ObjectMapper mapper; private final DurableTurnExecutionStore turns;private final ConversationHistoryStore history;
+    public IncomingMessageStore(JdbcTemplate jdbc,ObjectMapper mapper,DurableTurnExecutionStore turns,ConversationHistoryStore history){this.jdbc=jdbc;this.mapper=mapper;this.turns=turns;this.history=history;}
+    public List<online.wanan.xingchen.core.context.ContextMessage> history(UUID conversation,String currentEventId,int limit){return history.recent(conversation,currentEventId,limit);}
+    public int uncertainHistory(UUID conversation){return history.recentUnknownCount(conversation);}
+    public void advanceHistory(UUID conversation,String eventId){history.startAt(conversation,eventId);}
     /** Persists identity snapshots and event atomically; duplicate delivery changes no stored state. */
     @Transactional
     public boolean persist(PlatformEvent event,ResolvedActorContext resolved){return persistOrdered(event,resolved).status()==EventPersistResult.Status.NEW_IN_ORDER;}
@@ -31,7 +34,7 @@ public class IncomingMessageStore {
         jdbc.update("INSERT INTO memberships(id,person_id,conversation_id,current_display_name,card,platform_role,first_seen_at,last_seen_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(person_id,conversation_id) DO UPDATE SET current_display_name=excluded.current_display_name,card=excluded.card,platform_role=excluded.platform_role,last_seen_at=MAX(memberships.last_seen_at,excluded.last_seen_at)",m.id().toString(),p.id().toString(),c.id().toString(),m.currentDisplayName(),m.card(),m.platformRole().name(),m.firstSeenAt().toString(),m.lastSeenAt().toString());
         saveAlias(p.id().toString(),m.currentDisplayName(),c.id().toString(),at); saveAlias(p.id().toString(),m.card(),c.id().toString(),at);
         String metadata; try{metadata=mapper.writeValueAsString(event.rawMetadata());}catch(JsonProcessingException e){throw new IllegalStateException("could not serialize OneBot metadata",e);}
-        int inserted=jdbc.update("INSERT OR IGNORE INTO messages(id,platform,conversation_id,actor_person_id,platform_message_id,reply_to_message_id,text,is_self,is_owner,created_at,raw_metadata_json,message_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",event.platform()+":"+event.message().platformMessageId(),event.platform().name(),c.id().toString(),p.id().toString(),event.message().platformMessageId(),event.message().replyToMessageId(),event.text(),bool(resolved.flags().self()),bool(resolved.flags().owner()),at,metadata,event.eventType());
+        int inserted=jdbc.update("INSERT OR IGNORE INTO messages(id,platform,conversation_id,actor_person_id,platform_message_id,reply_to_message_id,text,is_self,is_owner,created_at,raw_metadata_json,message_type,context_generation,context_speaker_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",event.platform()+":"+event.message().platformMessageId(),event.platform().name(),c.id().toString(),p.id().toString(),event.message().platformMessageId(),event.message().replyToMessageId(),event.text(),bool(resolved.flags().self()),bool(resolved.flags().owner()),at,metadata,event.eventType(),resetGeneration(c.id()),resolved.displayIdentity());
         if(inserted==0)return new EventPersistResult(EventPersistResult.Status.DUPLICATE);
         if(order==EventPersistResult.Status.NEW_IN_ORDER){Long sequence=sequence(event);jdbc.update("INSERT INTO event_order_state(platform,conversation_id,last_timestamp,last_message_id,last_sequence,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(platform,conversation_id) DO UPDATE SET last_timestamp=excluded.last_timestamp,last_message_id=excluded.last_message_id,last_sequence=excluded.last_sequence,updated_at=excluded.updated_at",event.platform().name(),c.id().toString(),at,event.message().platformMessageId(),sequence,at);}
         if(order==EventPersistResult.Status.NEW_IN_ORDER){
@@ -66,7 +69,7 @@ public class IncomingMessageStore {
             try{List<String> parts=mapper.readValue(rs.getString(2),mapper.getTypeFactory().constructCollectionType(List.class,String.class));return Map.of("at",rs.getString(1),"text",parts.getFirst());}catch(Exception invalid){return Map.<String,String>of();}
         },conversation.toString(),resetGeneration).stream().findFirst().orElse(Map.of());
     }
-    private long resetGeneration(UUID conversation){return jdbc.query("SELECT generation FROM conversation_reset_controls WHERE conversation_id=?",(rs,n)->rs.getLong(1),conversation.toString()).stream().findFirst().orElse(0L);}
+    private long resetGeneration(UUID conversation){return jdbc.queryForObject("SELECT MAX(g) FROM (SELECT generation g FROM conversation_reset_controls WHERE conversation_id=? UNION ALL SELECT history_reset_generation g FROM session_state WHERE conversation_id=? UNION ALL SELECT 0)",Long.class,conversation.toString(),conversation.toString());}
     public List<String> proactiveContext(UUID conversation){
         long resetGeneration=resetGeneration(conversation);
         var rows=jdbc.queryForList("""

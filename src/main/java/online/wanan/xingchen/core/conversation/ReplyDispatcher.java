@@ -36,7 +36,7 @@ public final class ReplyDispatcher {
             if(outbound!=null&&turnId!=null&&!turnId.isBlank()){
                 String executionKey=actor.conversation().id()+":"+turnId+":"+i;
                 var record=outbound.dispatch(executionKey,actor.conversation().id(),turnId,generation,turnId+":"+i,recipient,admission,
-                        ()->kind.equals("group")?gateway.sendGroupMessage(recipient,sendText):gateway.sendPrivateMessage(recipient,sendText));
+                        ()->kind.equals("group")?gateway.sendGroupMessage(recipient,sendText):gateway.sendPrivateMessage(recipient,sendText),sendText,"TEXT");
                 DeliveryStatus status=switch(record.status()){case SUCCESS->DeliveryStatus.ACCEPTED;case FAILED->DeliveryStatus.REJECTED;case UNKNOWN,PENDING->DeliveryStatus.UNKNOWN;};
                 receipt=new SendReceipt(status==DeliveryStatus.ACCEPTED,"outbound",Objects.toString(record.providerMessageId(),recipient),
                         status==DeliveryStatus.ACCEPTED?sendText:Objects.toString(record.failureReason(),""),status);

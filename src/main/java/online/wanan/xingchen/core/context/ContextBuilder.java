@@ -31,9 +31,13 @@ public final class ContextBuilder {
         List<String> toolResults=new ArrayList<>();int toolTokens=0;
         for(int i=input.toolResults().size()-1;i>=0;i--){String item=input.toolResults().get(i);int cost=estimate(item);int cap=Math.min(budget.toolResultTokenBudget(),remaining);if(toolTokens+cost>cap){int allowed=Math.max(0,cap-toolTokens);item=trim(item,allowed);cost=estimate(item);}if(cost>0&&toolTokens+cost<=cap){toolResults.add(0,item);toolTokens+=cost;}}
         remaining=Math.max(0,remaining-toolTokens);
-        List<String> recentCandidates=input.recentMessages().stream().skip(Math.max(0,input.recentMessages().size()-budget.recentMessageLimit())).toList();
-        LinkedList<String> recent=new LinkedList<>();int recentTokens=0;
-        for(int i=recentCandidates.size()-1;i>=0;i--){String item=recentCandidates.get(i);int cost=estimate(item);if(recentTokens+cost>remaining)continue;recent.addFirst(item);recentTokens+=cost;}
+        var historyCandidates=input.historyMessages();
+        List<String> source=historyCandidates.isEmpty()?input.recentMessages():historyCandidates.stream().map(ContextMessage::promptText).toList();
+        LinkedList<String> recent=new LinkedList<>();LinkedList<ContextMessage> history=new LinkedList<>();int recentTokens=0;
+        for(int i=source.size()-1;i>=Math.max(0,source.size()-budget.recentMessageLimit());i--){
+            String item=source.get(i);int cost=estimate(item);if(recentTokens+cost>remaining)continue;
+            recent.addFirst(item);recentTokens+=cost;if(!historyCandidates.isEmpty())history.addFirst(historyCandidates.get(i));
+        }
         int total=fixed+summaryTokens+memoryTokens+toolTokens+recentTokens;
         int calibratedTotal=calibratedEstimate(sim)+calibratedEstimate(persona)+calibratedEstimate(identity)+calibratedEstimate(relationship)+calibratedEstimate(current)+calibratedEstimate(tools)+calibratedEstimate(taskText)+calibratedEstimate(summary)+calibratedEstimate(channel);
         for(Memory m:selected)calibratedTotal+=calibratedEstimate(m.content());
@@ -43,7 +47,7 @@ public final class ContextBuilder {
         var diagnostics=new ContextDiagnostics(total,estimate(persona),estimate(sim),memoryTokens,recentTokens,summaryTokens,
                 selected.stream().map(Memory::id).toList(),input.memories().size()-selected.size(),status,toolTokens,calibratedTotal,Math.max(0,total-calibratedTotal));
         return new ContextPackage(persona,sim,n(input.actorId()),n(input.conversationId()),n(input.address()),List.copyOf(selected),
-                List.copyOf(recent),input.taskState(),current,total,status,n(input.displayName()),identity,relationship,summary,tools,diagnostics,List.copyOf(toolResults),input.conversationIdentity());
+                List.copyOf(recent),input.taskState(),current,total,status,n(input.displayName()),identity,relationship,summary,tools,diagnostics,List.copyOf(toolResults),input.conversationIdentity(),List.copyOf(history));
     }
     public SessionLifecycleStatus lifecycle(int tokens) {
         if (tokens > budget.hardLimitTokens()) return SessionLifecycleStatus.HARD_LIMIT;

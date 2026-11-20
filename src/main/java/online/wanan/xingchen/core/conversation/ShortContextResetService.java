@@ -23,7 +23,8 @@ public class ShortContextResetService {
         if(interactions!=null)interactions.interruptConversation(conversation.toString());
         sessions.reset(conversation);window.clear(conversation.toString());
         jdbc.update("DELETE FROM conversation_summaries WHERE conversation_id=?",conversation.toString());jdbc.update("DELETE FROM session_handoffs WHERE conversation_id=?",conversation.toString());
-        jdbc.update("UPDATE session_state SET status='RESET',current_summary_id=NULL,estimated_context_tokens=0,token_estimate=0,updated_at=CURRENT_TIMESTAMP WHERE conversation_id=?",conversation.toString());
+        long floor=generation>=0?generation:jdbc.query("SELECT history_reset_generation FROM session_state WHERE conversation_id=?",(rs,n)->rs.getLong(1),conversation.toString()).stream().findFirst().orElse(0L)+1;
+        jdbc.update("INSERT INTO session_state(conversation_id,session_id,status,token_estimate,estimated_context_tokens,updated_at,history_reset_generation) VALUES(?,?,'RESET',0,0,CURRENT_TIMESTAMP,?) ON CONFLICT(conversation_id) DO UPDATE SET status='RESET',current_summary_id=NULL,history_start_message_id=NULL,estimated_context_tokens=0,token_estimate=0,updated_at=CURRENT_TIMESTAMP,history_reset_generation=MAX(session_state.history_reset_generation,excluded.history_reset_generation)",conversation.toString(),conversation+"-reset",floor);
         return true;
     }
 }

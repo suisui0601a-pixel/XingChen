@@ -29,12 +29,20 @@ public final class OutboundExecutionService {
     /** Admission runs once, after the durable claim and before any transport call. */
     public OutboundExecutionRecord dispatch(String executionKey,UUID conversationId,String turnId,long generation,
             String logicalMessageId,String target,java.util.function.Supplier<String> rejectionReason,SendOperation operation){
+        return dispatch(executionKey,conversationId,turnId,generation,logicalMessageId,target,rejectionReason,operation,null,null);
+    }
+
+    /** Body is evidence only. Persist before transport, expose only after SUCCESS; never retry for history. */
+    public OutboundExecutionRecord dispatch(String executionKey,UUID conversationId,String turnId,long generation,
+            String logicalMessageId,String target,java.util.function.Supplier<String> rejectionReason,SendOperation operation,
+            String contextText,String contextKind){
+        if(contextText!=null){if(!java.util.Set.of("TEXT","STICKER").contains(contextKind))throw new IllegalArgumentException("invalid outbound context evidence");if(contextText.length()>4000)contextText=contextText.substring(0,4000);}
         Objects.requireNonNull(operation);
         Objects.requireNonNull(rejectionReason);
         var now=clock.instant();
         var proposed=new OutboundExecutionRecord(executionKey,conversationId,turnId,generation,logicalMessageId,
                 OutboundExecutionRecord.Status.PENDING,null,null,now,now,null);
-        repository.reserve(proposed);
+        repository.reserve(proposed,contextText,contextKind);
         var existing=repository.find(executionKey).orElseThrow();
         if(!existing.conversationId().equals(conversationId)||!existing.turnId().equals(turnId)
                 ||existing.generation()!=generation||!existing.logicalMessageId().equals(logicalMessageId))
