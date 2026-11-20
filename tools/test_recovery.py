@@ -21,6 +21,11 @@ def database(path):
 
 
 class RecoveryTest(unittest.TestCase):
+    def test_recovery_schema_matches_complete_migration_set(self):
+        migrations = Path(__file__).resolve().parents[1] / "src/main/resources/db/migration"
+        versions = {int(path.name.split("__", 1)[0][1:]) for path in migrations.glob("V*__*.sql")}
+        self.assertEqual(versions, set(range(1, r.SCHEMA + 1)))
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.base = Path(self.tmp.name)
@@ -33,7 +38,7 @@ class RecoveryTest(unittest.TestCase):
             for path in sorted(migrations.glob("V*__*.sql"), key=lambda p: int(p.name.split("__")[0][1:])):
                 db.executescript(path.read_text())
             db.execute("CREATE TABLE flyway_schema_history(version TEXT, success INTEGER)")
-            db.executemany("INSERT INTO flyway_schema_history VALUES(?,1)", [(str(i),) for i in range(1, 29)])
+            db.executemany("INSERT INTO flyway_schema_history VALUES(?,1)", [(str(i),) for i in range(1, r.SCHEMA + 1)])
             db.execute("INSERT INTO persons VALUES('p','QQ','10001',0,1,'t','t')")
             db.execute("INSERT INTO relationship_terms VALUES('r','p','p','ADDRESS_AS','fixture','PRIVATE','p',1,1,NULL,'t','t',1)")
             db.execute("INSERT INTO memories VALUES('m','SEMANTIC','p',NULL,NULL,'fixture','PRIVATE','p',1,1,1,'t','t',NULL,NULL,'ACTIVE')")

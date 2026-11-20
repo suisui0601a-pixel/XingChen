@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Repository
@@ -59,6 +60,35 @@ public class IncomingMessageStore {
     private String serialize(PlatformEvent event){try{return mapper.writeValueAsString(event);}catch(JsonProcessingException e){throw new IllegalStateException("could not serialize persisted inbound event",e);}}
     private PlatformEvent deserialize(String json){try{return mapper.readValue(json,PlatformEvent.class);}catch(JsonProcessingException e){throw new IllegalStateException("could not restore persisted inbound event",e);}}
     public record InboundExecution(String executionKey,String turnId,Long generation,String status){}
+    public java.util.Map<String,String> lastProactiveMessage(UUID conversation){
+        long resetGeneration=resetGeneration(conversation);
+        return jdbc.query("SELECT p.checked_at,p.output_json FROM proactive_attempts p WHERE p.conversation_id=? AND p.status='SENT' AND p.output_json IS NOT NULL AND EXISTS(SELECT 1 FROM onebot_outbound_executions o WHERE o.turn_id=p.turn_id AND o.status='SUCCESS' AND o.generation>=?) ORDER BY p.checked_at DESC LIMIT 1",(rs,n)->{
+            try{List<String> parts=mapper.readValue(rs.getString(2),mapper.getTypeFactory().constructCollectionType(List.class,String.class));return Map.of("at",rs.getString(1),"text",parts.getFirst());}catch(Exception invalid){return Map.<String,String>of();}
+        },conversation.toString(),resetGeneration).stream().findFirst().orElse(Map.of());
+    }
+    private long resetGeneration(UUID conversation){return jdbc.query("SELECT generation FROM conversation_reset_controls WHERE conversation_id=?",(rs,n)->rs.getLong(1),conversation.toString()).stream().findFirst().orElse(0L);}
+    public List<String> proactiveContext(UUID conversation){
+        long resetGeneration=resetGeneration(conversation);
+        var rows=jdbc.queryForList("""
+            SELECT kind,content,ordinal FROM (
+              SELECT 'human' AS kind,p.platform_user_id || ': ' || m.text AS content,m.created_at AS at,NULL AS ordinal
+              FROM messages m JOIN persons p ON p.id=m.actor_person_id
+              LEFT JOIN inbound_turn_executions i ON i.conversation_id=m.conversation_id AND i.incoming_event_id=m.platform_message_id AND i.platform=m.platform
+              WHERE m.conversation_id=? AND m.is_self=0 AND m.message_type='message' AND COALESCE(i.generation,0)>=?
+              UNION ALL
+              SELECT 'bot-part',t.output_json,o.updated_at,CAST(substr(o.logical_message_id,length(t.turn_id)+2) AS INTEGER)
+              FROM durable_turn_executions t JOIN onebot_outbound_executions o ON o.turn_id=t.turn_id AND o.status='SUCCESS'
+              WHERE t.conversation_id=? AND t.generation>=? AND o.logical_message_id LIKE t.turn_id||':%'
+              UNION ALL
+              SELECT 'bot',p.output_json,p.checked_at,NULL FROM proactive_attempts p
+              WHERE p.conversation_id=? AND p.status='SENT' AND p.output_json IS NOT NULL
+                AND EXISTS(SELECT 1 FROM onebot_outbound_executions o WHERE o.turn_id=p.turn_id AND o.status='SUCCESS' AND o.generation>=?)
+            ) ORDER BY at DESC LIMIT 16
+            """,conversation.toString(),resetGeneration,conversation.toString(),resetGeneration,conversation.toString(),resetGeneration);
+        var result=new java.util.ArrayList<String>();
+        for(var row:rows){String text=String.valueOf(row.get("content"));if(String.valueOf(row.get("kind")).startsWith("bot"))try{List<String> parts=mapper.readValue(text,mapper.getTypeFactory().constructCollectionType(List.class,String.class));text="机器人: "+("bot-part".equals(row.get("kind"))?parts.get(((Number)row.get("ordinal")).intValue()):String.join(" ",parts));}catch(Exception invalid){continue;}result.add(text);}
+        java.util.Collections.reverse(result);return List.copyOf(result);
+    }
     private EventPersistResult.Status classify(PlatformEvent event,String conversationId){
         var previous=jdbc.query("SELECT last_timestamp,last_message_id,last_sequence FROM event_order_state WHERE platform=? AND conversation_id=?",(rs,n)->{long seq=rs.getLong(3);return new OrderPoint(java.time.Instant.parse(rs.getString(1)),rs.getString(2),rs.wasNull()?null:seq);},event.platform().name(),conversationId).stream().findFirst().orElse(null);
         if(previous==null)return event.timestamp().equals(java.time.Instant.EPOCH)?EventPersistResult.Status.UNORDERABLE_ARCHIVED:EventPersistResult.Status.NEW_IN_ORDER;

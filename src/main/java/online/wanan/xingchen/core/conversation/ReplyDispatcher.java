@@ -26,7 +26,7 @@ public final class ReplyDispatcher {
         for(int i=0;i<n;i++){
             if(i>0&&i<effectiveMax&&!effectiveGap.isZero())sleeper.accept(effectiveGap);
             String text=Objects.requireNonNullElse(messages.get(i),"");if(text.isBlank())continue;
-            if(text.length()>maxChars)text=text.substring(0,Math.max(0,maxChars-1))+"…";
+            text=boundedText(text);
             final String sendText=text;
             String target=actor.conversation().identity().platformConversationId();
             String kind=actor.conversation().identity().type()==ConversationType.GROUP?"group":"private";
@@ -52,6 +52,7 @@ public final class ReplyDispatcher {
         }
         return List.copyOf(result);
     }
+    String boundedText(String text){return text.length()>maxChars?text.substring(0,Math.max(0,maxChars-1))+"…":text;}
     /** Only this bounded accounting section is shared; no network IO or sleep under its lock.
      * Count attempts (including UNKNOWN) so failed/ambiguous sends cannot evade protection. */
     private synchronized boolean reserveRate(int limit){

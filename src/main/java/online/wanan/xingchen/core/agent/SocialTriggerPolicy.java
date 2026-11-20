@@ -43,7 +43,7 @@ public final class SocialTriggerPolicy {
         SocialTrigger trigger=forced?SocialTrigger.MUST_REPLY:reasons.isEmpty()?SocialTrigger.MAY_REPLY:SocialTrigger.MAY_REPLY;
         return new WakeDecision(trigger,reasons);
     }
-    private static boolean hasVisibleText(String text){
+    public static boolean hasVisibleText(String text){
         return text.codePoints().anyMatch(codePoint->{
             if(Character.isWhitespace(codePoint)||Character.isISOControl(codePoint))return false;
             int type=Character.getType(codePoint);

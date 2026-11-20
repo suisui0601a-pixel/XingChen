@@ -2,13 +2,27 @@
 
 ## Unreleased
 
+### Added
+
+- Opt-in idle proactive participation for private and group conversations, with
+  independent policy, quiet hours, cooldown, durable admission and daily/global budgets.
+- Reuse conversation lanes and the outbound ledger without fabricating inbound
+  messages. New input cancels pending idle intent; crashed/UNKNOWN attempts never replay.
+- Authenticated timer diagnostics and Console global/conversation controls. Group
+  timer context cannot borrow the last speaker's private memories or Owner privileges.
+- V29 adds only the proactive admission/output journal; existing memory, prompt,
+  identity and access tables retain their semantics.
+- Fence scheduled callbacks by lifecycle epoch so stopped callbacks cannot renew
+  after restart. Proven-retired normal inbound claims do not permanently block a
+  new idle turn; active, missing-journal and persisted claims remain fail-closed.
+
 ### Fixed
 
 - Fix production participation wiring that supplied a constant zero RNG: every
   positive ordinary-message probability previously selected every eligible event.
   Use the default random source; keep deterministic RNGs confined to tests.
 - Clarify that probability-based participation requires a new inbound message and
-  is disabled by default. Idle proactive messaging has not been implemented.
+  is disabled by default. Idle proactive messaging now has separate opt-in settings.
 - Keep final text dispatch independent of tool-result bookkeeping, while retaining
   per-tool and per-output ledger keys. Stop automatic continuation after UNKNOWN
   tool delivery rather than risking a second send.

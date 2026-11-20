@@ -53,9 +53,18 @@ class ConsoleAuthSecurityTest {
     @Test void auth001_protectedManagementApisRequireAuthentication() throws Exception {
         mvc.perform(get("/api/console/overview")).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
         mvc.perform(get("/api/gateway/status")).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
+        mvc.perform(get("/api/social-settings/proactive-status")).andExpect(status().isUnauthorized());
         mvc.perform(get("/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
         String hash=jdbc.queryForObject("SELECT password_hash FROM console_admin_credentials WHERE username=?",String.class,USER);
         assertThat(hash).startsWith("$2a$").isNotEqualTo(PASSWORD);
+    }
+    @Test @WithMockUser(username="console-test-admin") void proactiveDiagnosticsAreAuthenticatedAndContainOnlySafeState()throws Exception{
+        String body=mvc.perform(get("/api/social-settings/proactive-status")).andExpect(status().isOk()).andExpect(header().string("Cache-Control",org.hamcrest.Matchers.containsString("no-store")))
+                .andExpect(jsonPath("$.globalHourlyTurnLimit").value(4)).andReturn().getResponse().getContentAsString();
+        assertThat(body).doesNotContain("output_json","event_json","password","token","persona","simulationPrompt");
+        mvc.perform(patch("/api/social-settings/global").with(realCsrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"expectedRevision\":0,\"values\":{\"proactiveProbability\":2}}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test @WithMockUser(username="console-test-admin") void auth011_fakeConversationControlsAreAbsentOutsideFakeProfile() throws Exception {
