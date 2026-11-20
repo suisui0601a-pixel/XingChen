@@ -113,6 +113,27 @@ class MossReplyReliabilityTest {
         }finally{TestSqliteDatabase.clean(db);}
     }
 
+    @Test void localStickerRejectionHasADurableSafeReasonAndIsNotReplayed() {
+        var db=TestSqliteDatabase.create("moss-sticker-rejection");
+        try(var app=start(TestSqliteDatabase.jdbcUrl(db))){
+            var actor=app.getBean(online.wanan.xingchen.core.identity.IdentityResolver.class).resolve(event("group","sticker-rejection"));
+            var outbound=app.getBean(online.wanan.xingchen.core.conversation.OutboundExecutionService.class);
+            var calls=new java.util.concurrent.atomic.AtomicInteger();
+            for(int i=0;i<2;i++){
+                var record=outbound.dispatch("sticker-rejection",actor.conversation().id(),"turn",0,"logical","group-final",()->{
+                    calls.incrementAndGet();return new online.wanan.xingchen.adapter.onebot.SendReceipt(false,"sticker","group-final","per-turn limit");
+                });
+                assertThat(record.status()).isEqualTo(online.wanan.xingchen.core.conversation.OutboundExecutionRecord.Status.FAILED);
+                assertThat(record.failureReason()).isEqualTo("sticker-per-turn-limit");
+            }
+            assertThat(calls).hasValue(1);
+            var unknown=outbound.dispatch("untrusted-error",actor.conversation().id(),"turn",0,"other","group-final",()->
+                new online.wanan.xingchen.adapter.onebot.SendReceipt(false,"sticker","group-final","synthetic sensitive transport body"));
+            assertThat(unknown.failureReason()).isEqualTo("onebot-rejected");
+            assertThat(app.getBean(FakeOneBotServer.class).sendReceiveCount()).isZero();
+        }finally{TestSqliteDatabase.clean(db);}
+    }
+
     private static online.wanan.xingchen.core.conversation.OrchestrationResult handle(ConfigurableApplicationContext app,online.wanan.xingchen.core.model.PlatformEvent event){
         var orchestrator=app.getBean(ConversationOrchestrator.class);var prepared=orchestrator.prepare(event);
         if(!prepared.mayStartTurn())return orchestrator.handle(prepared,false,null,Set.of());

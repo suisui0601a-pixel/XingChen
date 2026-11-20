@@ -14,6 +14,7 @@ public final class StickerService {
     private final Path root,inbox,library;private final StickerRepository repository;private final StickerPolicy policy;private final OneBotGateway gateway;private final Clock clock;
     public StickerService(Path root,StickerRepository repository,StickerPolicy policy,OneBotGateway gateway,Clock clock){this.root=root.toAbsolutePath().normalize();this.inbox=this.root.resolve("inbox");this.library=this.root.resolve("library");this.repository=repository;this.policy=policy;this.gateway=gateway;this.clock=clock;}
     public void beginTurn(){policy.beginTurn();}
+    public StickerPolicy.TurnScope beginTurnScope(){return policy.openTurn();}
     public List<StickerMetadata> list(int limit){return repository.list(limit).stream().filter(StickerMetadata::enabled).toList();}
     public List<StickerMetadata> search(String q,int limit){return repository.search(q,limit).stream().filter(StickerMetadata::enabled).toList();}
     public StickerMetadata collect(String assetId,List<String> tags,String source)throws IOException{
@@ -36,8 +37,9 @@ public final class StickerService {
     public SendReceipt send(UUID id,String target,String kind){
         StickerMetadata s=repository.get(id).orElseThrow(()->new NoSuchElementException("sticker not found"));
         if(!s.enabled())return new SendReceipt(false,"sticker",target,"sticker disabled");
-        Instant now=clock.instant();StickerPolicy.Decision d=policy.evaluate(id,now);
-        if(!d.allowed())return new SendReceipt(false,"sticker",target,d.reason());
+        Instant now=clock.instant();var admission=policy.reserve(id,now);
+        if(!admission.decision().allowed())return new SendReceipt(false,"sticker",target,admission.decision().reason());
+        boolean consumed=false;
         try{
             Path rootReal=root.toRealPath(),libraryReal=library.toRealPath(),asset=rootReal.resolve(s.path()).normalize();
             if(!libraryReal.startsWith(rootReal)||!asset.startsWith(libraryReal)||!Files.isRegularFile(asset,LinkOption.NOFOLLOW_LINKS)||!asset.toRealPath().startsWith(libraryReal))
@@ -50,10 +52,13 @@ public final class StickerService {
             }
             if(!HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)).equals(s.sha256()))
                 return new SendReceipt(false,"sticker",target,"sticker integrity mismatch");
+            consumed=true; // Once transport starts, an exception may represent an unconfirmed send.
             SendReceipt receipt=gateway.sendImageBytes(target,kind,bytes);
-            if(receipt.accepted()){repository.recordUse(id,now);policy.record(id,now);}
+            consumed=receipt.status()!=DeliveryStatus.REJECTED;
+            if(receipt.accepted())repository.recordUse(id,now);
             return receipt;
         }catch(IOException|java.security.NoSuchAlgorithmException e){return new SendReceipt(false,"sticker",target,"sticker asset unavailable");}
+        finally{policy.finish(admission.permit(),consumed,now);}
     }
     private static String extension(String name){int i=name.lastIndexOf('.');return i<0?"":name.substring(i).toLowerCase(Locale.ROOT);}
     static List<String> normalizeTags(List<String> tags){if(tags==null)return List.of();if(tags.size()>32)throw new IllegalArgumentException("sticker tag limit exceeded");List<String> result=tags.stream().filter(Objects::nonNull).map(String::trim).filter(s->!s.isEmpty()).peek(s->{if(s.length()>40)throw new IllegalArgumentException("sticker tag is too long");}).distinct().toList();return List.copyOf(result);}
