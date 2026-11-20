@@ -5,12 +5,12 @@ import java.util.*;
 /** Closed list of model-callable operations. The provider receives only JSON-schema contracts from this list. */
 public final class AgentToolCatalog {
     private static final List<AgentTool> TOOLS=List.of(
-        tool("qq.readRecent",AgentCapability.QQ_READ,"Read recent messages in one conversation",props("conversation",str(),"limit",integer()),"conversation"),
-        tool("qq.readUnread",AgentCapability.QQ_READ,"Read unread messages in one conversation",props("conversation",str(),"limit",integer()),"conversation"),
+        tool("qq.readRecent",AgentCapability.QQ_READ,"Read recent messages in the current conversation; use conversation=currentTargetId, not sender actorId.",props("conversation",str(),"limit",integer()),"conversation"),
+        tool("qq.readUnread",AgentCapability.QQ_READ,"Read unread messages in the current conversation; use conversation=currentTargetId, not sender actorId.",props("conversation",str(),"limit",integer()),"conversation"),
         tool("qq.markRead",AgentCapability.QQ_READ,"Advance the persisted read cursor to a message already observed in this conversation",props("conversation",str(),"cursor",str()),"conversation","cursor"),
-        tool("qq.send",AgentCapability.QQ_SEND,"Send one private or group text message",props("target",str(),"text",str(),"kind",enumeration("private","group")),"target","text","kind"),
-        tool("qq.sendMultiple",AgentCapability.QQ_SEND,"Send a bounded ordered batch of messages to the current conversation",props("target",str(),"kind",enumeration("private","group"),"messages",arrayOfString()),"target","kind","messages"),
-        tool("qq.reply",AgentCapability.QQ_REPLY,"Reply to a source platform message",props("messageId",str(),"text",str()),"messageId","text"),
+        tool("qq.send",AgentCapability.QQ_SEND,"Immediately send text to the target=currentTargetId and kind=currentTargetKind. Final assistant text is delivered automatically, so prefer it for ordinary replies. After ACCEPTED do not repeat the text or narrate a receipt; return NO_REPLY if finished.",props("target",str(),"text",str(),"kind",enumeration("private","group")),"target","text","kind"),
+        tool("qq.sendMultiple",AgentCapability.QQ_SEND,"Immediately send a bounded ordered batch to the current conversation. After ACCEPTED do not repeat the messages or add a send report; return NO_REPLY if finished.",props("target",str(),"kind",enumeration("private","group"),"messages",arrayOfString()),"target","kind","messages"),
+        tool("qq.reply",AgentCapability.QQ_REPLY,"Immediately send a quoted reply within the current conversation. After ACCEPTED do not repeat it or narrate a receipt; return NO_REPLY if finished.",props("messageId",str(),"text",str()),"messageId","text"),
         tool("qq.wait",AgentCapability.QQ_WAIT,"Wait for a bounded number of unread messages",props("conversation",str(),"limit",integer(),"timeoutSeconds",Map.of("type","integer","minimum",1,"maximum",30)),"conversation"),
         tool("qq.setWakeConfig",AgentCapability.QQ_WAIT,"Set persisted simulation wake triggers for this conversation",props("conversation",str(),"mention",Map.of("type","boolean"),"name",Map.of("type","boolean"),"question",Map.of("type","boolean"),"poke",Map.of("type","boolean"),"speakers",arrayOfString()),"conversation"),
         tool("qq.getMember",AgentCapability.QQ_READ,"Read one group member by platform ID",props("groupId",str(),"userId",str()),"groupId","userId"),
@@ -23,7 +23,7 @@ public final class AgentToolCatalog {
         tool("memory.getPerson",AgentCapability.MEMORY_READ,"Read a person identity by stable platform identity",props("platform",str(),"platformUserId",str()),"platform","platformUserId"),
         tool("sticker.list",AgentCapability.STICKER_READ,"List a bounded selection of local sticker metadata",props("limit",integer()),"limit"),
         tool("sticker.search",AgentCapability.STICKER_READ,"Search local sticker metadata by tags or note",props("query",str(),"limit",integer()),"query"),
-        tool("sticker.send",AgentCapability.STICKER_SEND,"Send a policy-approved local sticker by ID",props("stickerId",str(),"target",str(),"kind",enumeration("private","group")),"stickerId","target","kind"),
+        tool("sticker.send",AgentCapability.STICKER_SEND,"Immediately send a policy-approved sticker to the target=currentTargetId and kind=currentTargetKind. After ACCEPTED do not add a receipt report; final text is only needed for new useful content.",props("stickerId",str(),"target",str(),"kind",enumeration("private","group")),"stickerId","target","kind"),
         tool("sticker.collect",AgentCapability.STICKER_WRITE,"Collect a sticker from an approved local inbox asset ID",props("assetId",str(),"tags",arrayOfString()),"assetId"),
         tool("sticker.note",AgentCapability.STICKER_WRITE,"Update a local sticker note by ID",props("stickerId",str(),"note",str()),"stickerId","note"),
         tool("slang.search",AgentCapability.SLANG_READ,"Search local slang entries",props("query",str(),"limit",integer()),"query"),

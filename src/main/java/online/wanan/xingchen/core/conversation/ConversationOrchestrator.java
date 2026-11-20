@@ -182,7 +182,7 @@ public final class ConversationOrchestrator {
         taskState.put("prompt.simulationVersionId",Objects.toString(promptSnapshot.simulationVersionId(),"configuration-default"));taskState.put("prompt.personaVersionId",Objects.toString(promptSnapshot.personaVersionId(),"configuration-default"));
         if(simulation!=null){taskState.put("simulation.mode",simulation.mode());taskState.put("simulation.wakeState",simulation.wakeState().name());taskState.put("simulation.generation",Long.toString(simulation.generation()));taskState.put("simulation.lastReadCursor",Objects.toString(simulation.lastReadCursor(),""));taskState.put("simulation.wakeReasons",String.join(",",new TreeSet<>(wakeReasons==null?Set.of():wakeReasons)));taskState.put("simulation.consecutiveNoAction",Integer.toString(simulation.consecutiveNoAction()));}
         var input=new ContextBuildInput(promptSnapshot.simulationPrompt(),promptSnapshot.personaPrompt(),actor.actorId(),actor.displayIdentity(),actor.address(),
-                actor.conversation().identity().platformConversationId(),memory.memories(),summary,recent,taskState,event.text(),"",request);
+                actor.conversation().identity().platformConversationId(),memory.memories(),summary,recent,taskState,event.text(),"",request,List.of(),actor.conversation().identity());
         return contexts.build(input);
     }
     private AgentDecision proactiveDecision(AgentDecision requested){
