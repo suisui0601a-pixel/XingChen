@@ -1,6 +1,8 @@
 package online.wanan.xingchen.core.agent;
 
 import online.wanan.xingchen.core.context.ContextPackage;
+import online.wanan.xingchen.core.prompt.QqSocialProtocol;
+import online.wanan.xingchen.core.model.Platform;
 import java.util.*;
 
 public record ModelRequest(ContextPackage context,List<AgentTool> tools,List<ModelMessage> messages,
@@ -15,7 +17,7 @@ public record ModelRequest(ContextPackage context,List<AgentTool> tools,List<Mod
     private static List<ModelMessage> defaultMessages(ContextPackage context){
         if(context==null)return List.of();String rendered=context.renderSections();int current=rendered.indexOf("\n[Recent Messages]"),tools=rendered.indexOf("\n[Tool Results]");int boundary=current<0?tools:tools<0?current:Math.min(current,tools);String system=boundary<0?rendered:rendered.substring(0,boundary);
         if((context.persona()!=null&&!context.persona().isBlank())||(context.simulationPrompt()!=null&&!context.simulationPrompt().isBlank()))system=ACTIVE_PROMPT_GUIDANCE+"\n"+system;
-        if(context.conversationIdentity()!=null)system=system+"\n"+REPLY_DELIVERY_GUIDANCE;
+        if(context.conversationIdentity()!=null)system=system+"\n"+(context.conversationIdentity().platform()==Platform.QQ?QqSocialProtocol.TEXT:REPLY_DELIVERY_GUIDANCE);
         var messages=new ArrayList<ModelMessage>();messages.add(ModelMessage.system(HardSecurityPolicy.TEXT));messages.add(ModelMessage.system(system));if(!context.historyMessages().isEmpty()){
             for(var h:context.historyMessages())messages.add(h.role()==online.wanan.xingchen.core.context.ContextMessage.Role.ASSISTANT?ModelMessage.assistant(h.content()):ModelMessage.user(h.promptText()));
         }else if(!context.recentMessages().isEmpty())messages.add(ModelMessage.user("Recent conversation:\n"+String.join("\n",context.recentMessages())));messages.add(ModelMessage.user(context.currentMessage()));return List.copyOf(messages);

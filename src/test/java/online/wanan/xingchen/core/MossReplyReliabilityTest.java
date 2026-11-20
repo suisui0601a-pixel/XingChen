@@ -187,7 +187,7 @@ class MossReplyReliabilityTest {
             assertThat(fake.appliedSendCount()).isEqualTo(1);
             assertThat(provider.requests()).hasSize(2);
             assertThat(provider.requests().get(1).messages()).anySatisfy(m->{
-                assertThat(m.role()).isEqualTo(ModelRole.SYSTEM);assertThat(m.content()).contains("return exactly NO_REPLY","Read-only tools do not deliver your answer","A genuinely new, useful follow-up is allowed");
+                assertThat(m.role()).isEqualTo(ModelRole.SYSTEM);assertThat(m.content()).contains("返回恰好 NO_REPLY","读工具本身没有替你发言","确有新的、有用的补充才继续说");
             });
             assertThat(app.getBean(org.springframework.jdbc.core.JdbcTemplate.class).queryForObject("SELECT COUNT(*) FROM onebot_outbound_executions WHERE status='SUCCESS'",Integer.class)).isEqualTo(1);
         }finally{TestSqliteDatabase.clean(db);}

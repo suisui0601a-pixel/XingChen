@@ -1,6 +1,8 @@
 package online.wanan.xingchen.core.context;
 
 import online.wanan.xingchen.core.memory.*;
+import online.wanan.xingchen.core.prompt.QqSocialProtocol;
+import online.wanan.xingchen.core.model.Platform;
 import java.util.*;
 
 public final class ContextBuilder {
@@ -25,7 +27,8 @@ public final class ContextBuilder {
         String relationship="displayName="+n(input.displayName())+"\nassistantAddress="+n(input.address());
         String taskText=input.taskState().entrySet().stream().map(e->e.getKey()+"="+e.getValue()).reduce((a,b)->a+"\n"+b).orElse("");
         String current=n(input.currentMessage()),tools=n(input.toolDescription()),channel=ConversationPromptContext.render(input.conversationIdentity());
-        int fixed=estimate(sim)+estimate(persona)+estimate(identity)+estimate(relationship)+estimate(current)+estimate(tools)+estimate(taskText)+estimate(channel);
+        String socialProtocol=input.conversationIdentity()!=null&&input.conversationIdentity().platform()==Platform.QQ?QqSocialProtocol.TEXT:"";
+        int fixed=estimate(sim)+estimate(persona)+estimate(identity)+estimate(relationship)+estimate(current)+estimate(tools)+estimate(taskText)+estimate(channel)+estimate(socialProtocol);
         int summaryTokens=estimate(summary); int remaining=Math.max(0,budget.hardLimitTokens()-fixed-summaryTokens);
         List<Memory> selected=new ArrayList<>();int memoryTokens=0;
         for(Memory m:visible){int cost=estimate(m.content());if(memoryTokens+cost>budget.memoryTokenBudget()||memoryTokens+cost>remaining)continue;selected.add(m);memoryTokens+=cost;}
@@ -41,7 +44,7 @@ public final class ContextBuilder {
             recent.addFirst(item);recentTokens+=cost;if(!historyCandidates.isEmpty())history.addFirst(historyCandidates.get(i));
         }
         int total=fixed+summaryTokens+memoryTokens+toolTokens+recentTokens;
-        int calibratedTotal=calibratedEstimate(sim)+calibratedEstimate(persona)+calibratedEstimate(identity)+calibratedEstimate(relationship)+calibratedEstimate(current)+calibratedEstimate(tools)+calibratedEstimate(taskText)+calibratedEstimate(summary)+calibratedEstimate(channel);
+        int calibratedTotal=calibratedEstimate(sim)+calibratedEstimate(persona)+calibratedEstimate(identity)+calibratedEstimate(relationship)+calibratedEstimate(current)+calibratedEstimate(tools)+calibratedEstimate(taskText)+calibratedEstimate(summary)+calibratedEstimate(channel)+calibratedEstimate(socialProtocol);
         for(Memory m:selected)calibratedTotal+=calibratedEstimate(m.content());
         for(String item:toolResults)calibratedTotal+=calibratedEstimate(item);
         for(String item:recent)calibratedTotal+=calibratedEstimate(item);
