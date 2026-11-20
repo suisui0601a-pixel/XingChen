@@ -33,6 +33,14 @@ V31 给原 Outbound Ledger 增加 context_text / context_kind。在同一准入�
 
 本修复不会把全部聊天自动当成事实，也不会迁移旧 DSH 数据。旧历史迁移需要可靠的 QQ 会话映射与单独审查，不按昵称或内容相似度合并。
 
+## PRIVATE 记忆的受众边界
+
+PRIVATE 记录只进入私聊模型上下文。群聊中即使是记录本人或 Owner 发言，也不能自动召回、通过 memory.search 读出或通过 memory.update 改写 PRIVATE 记录；Console 的会话预览遵循同样的真实会话类型。认证后台的管理查询和其他显式 scope 的既有语义不变。
+
+RequestContext 的受众由 Runtime / 工具执行器 / 预览服务从可信会话身份构造，不能由模型参数指定。ContextBuilder 会补齐 legacy 请求的真实受众，并拒绝与服务端会话类型矛盾的声明。旧四参构造器仅保留非聊天管理/兼容行为；新聊天调用应始终绑定真实 ConversationType。
+
+此边界修复不修改已有记忆正文、scope、Owner 身份或 Access 规则，不增加数据库 migration，Schema 仍为 31。
+
 ## 升级与回滚
 
 Schema 从 30 升至 31，增加上下文字段及查询索引；不修改 Persona、Simulation、Identity、Memory 正文、Access 或 OneBot 凭据。V1–V30 migration 保持原样。

@@ -85,7 +85,13 @@ class PeopleMemoryConsoleContractTest {
         preview(PERSON,CONV,null).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(personMemory)).andExpect(jsonPath("$.modelInvoked").value(false));
         preview(OTHER,CONV,null).andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(personMemory))));
         String privateMemory=createMemory("private boundary","PRIVATE",PERSON,null,null);
-        preview(PERSON,CONV,null).andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.hasItem(privateMemory)));
+        preview(PERSON,CONV,null).andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(privateMemory))));
+        preview(OWNER,CONV,null).andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(privateMemory))));
+        String privateConversation=java.util.UUID.randomUUID().toString();
+        jdbc.update("INSERT INTO conversations(id,platform,type,platform_conversation_id,created_at) VALUES(?,'QQ','PRIVATE','10001',?)",privateConversation,java.time.Instant.now().toString());
+        preview(PERSON,privateConversation,null).andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.hasItem(privateMemory)));
+        preview(OTHER,privateConversation,null).andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(privateMemory))));
+        mvc.perform(get("/api/memory").param("scope","PRIVATE").param("person",PERSON)).andExpect(status().isOk()).andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.hasItem(privateMemory)));
         preview(OTHER,CONV,null).andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(privateMemory))));
         String conversationMemory=createMemory("conversation boundary","CONVERSATION",PERSON,CONV,null);
         preview(PERSON,CONV,null).andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.hasItem(conversationMemory)));

@@ -15,7 +15,9 @@ public final class MemoryVisibility {
             case CONVERSATION -> Objects.equals(memory.conversationId(), request.conversationId());
             // Project scope is an isolation boundary even for an owner request.
             case PROJECT -> request.projectKey() != null && Objects.equals(memory.projectKey(), request.projectKey());
-            case PRIVATE -> request.ownerStatus() || Objects.equals(memory.subjectPersonId(), request.requestingPerson());
+            // A group is a shared audience, even when the current speaker owns the fact or is Owner.
+            case PRIVATE -> request.conversationType()!=online.wanan.xingchen.core.model.ConversationType.GROUP
+                    && (request.ownerStatus() || Objects.equals(memory.subjectPersonId(), request.requestingPerson()));
         };
     }
 }

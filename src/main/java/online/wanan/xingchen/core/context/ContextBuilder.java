@@ -16,7 +16,9 @@ public final class ContextBuilder {
                 candidateMemories,"",recentMessages,taskState,currentMessage,"",request));
     }
     public ContextPackage build(ContextBuildInput input){
-        List<Memory> visible=input.memories().stream().filter(m->input.requestContext()==null||MemoryVisibility.canRead(m,input.requestContext()))
+        var supplied=input.requestContext();
+        final RequestContext audience=supplied==null||input.conversationIdentity()==null?supplied:supplied.forAudience(input.conversationIdentity().type());
+        List<Memory> visible=input.memories().stream().filter(m->audience==null||MemoryVisibility.canRead(m,audience))
                 .sorted(Comparator.comparingDouble(Memory::importance).reversed()).toList();
         String sim=n(input.simulationPrompt()),persona=n(input.personaPrompt()),summary=trim(n(input.conversationSummary()),budget.summaryTokenBudget());
         String identity="actorId="+n(input.actorId())+"\ndisplayName="+n(input.displayName());
