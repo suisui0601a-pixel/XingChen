@@ -93,13 +93,15 @@ public final class ConversationOrchestrator {
     public static String proactiveTurnId(PlatformEvent anchor,UUID conversationId,String attemptId){return IncomingMessageStore.stableTurnId(anchor.platform()+":"+conversationId+":proactive:"+attemptId);}
     /** Timer intent is not an inbound message and is never added to human chat history or the read cursor. */
     public OrchestrationResult handleProactive(PlatformEvent anchor,UUID conversationId,String attemptId,
-            SimulationConversationState state,CancellationToken cancellation,SocialSettingsSnapshot settings,java.util.function.Consumer<AgentDecision> output){
+            SimulationConversationState state,CancellationToken cancellation,SocialSettingsSnapshot settings,java.util.function.Consumer<AgentDecision> output,SocialSchedule.Intent intent,java.time.ZonedDateTime localTime){
         cancellation.runWithCurrentGeneration(()->{});
         var resolved=identities.resolveExisting(anchor,conversationId);
         if(!resolved.conversation().id().equals(conversationId))throw new SecurityException("proactive conversation binding mismatch");
         var actor=new ResolvedActorContext(resolved.person(),resolved.conversation(),resolved.membership(),new ActorFlags(false,false,false,false),resolved.displayIdentity(),resolved.assistantAddress());
+        String timerInstruction=intent.kind().equals("MORNING")?"现在是每日早安问候时间，自然、简短地道一声早安。":intent.kind().equals("EVENING")?"现在是每日晚安问候时间，自然、简短地道一声晚安。":"可以结合本会话上下文自然地问候或延续话题。";
+        timerInstruction="这是系统定时检查，不是用户发来的新消息。当前本地时间："+localTime+"。"+timerInstruction+"没有合适内容就 NO_REPLY。不要假称用户刚说了什么，不要编造自己的起床、睡觉或其他经历，不要索要回复或连续催促。";
         var event=new PlatformEvent(anchor.platform(),anchor.conversation(),anchor.actor(),new online.wanan.xingchen.core.model.MessageIdentity("proactive:"+attemptId,null),
-                "internal:proactive","member","这是系统发起的闲置会话检查，不是用户发来的新消息。可以结合本会话上下文自然地问候或延续话题；没有合适内容就 NO_REPLY。不要假称用户刚说了什么，不要编造经历，不要索要回复或连续催促。",anchor.timestamp(),Map.of());
+                "internal:proactive","member",timerInstruction,anchor.timestamp(),Map.of("proactiveKind",intent.kind(),"proactiveLocalTime",localTime.toString()));
         var prepared=new PreparedConversationEvent(event,actor,new EventPersistResult(EventPersistResult.Status.NEW_IN_ORDER));
         var bounded=new SocialSettingsSnapshot(settings.globalRevision(),settings.overrideRevision(),settings.mentionWake(),settings.replyToBotWake(),settings.pokeWake(),settings.botNameWake(),settings.botNameAliases(),settings.questionWake(),settings.configuredSpeakerWake(),settings.configuredSpeakerIds(),settings.manualWakeEnabled(),settings.ordinaryMessageProbability(),1,settings.maxPerMinute(),settings.gapMillis());
         return handle(prepared,true,state,Set.of("PROACTIVE_TIMER"),cancellation,bounded,output);
@@ -161,15 +163,18 @@ public final class ConversationOrchestrator {
         return new OrchestrationResult(false,false,rollover,actor,context,decision,evaluation,toolResult);
     }
     public DecisionType resumePersistedDecision(PlatformEvent event,DurableTurnExecutionStore.RecoveryTurn turn){
+        return resumePersistedDecision(event,turn,new CancellationToken());
+    }
+    public DecisionType resumePersistedDecision(PlatformEvent event,DurableTurnExecutionStore.RecoveryTurn turn,CancellationToken cancellation){
         DecisionType type;try{type=DecisionType.valueOf(turn.outputType());}catch(Exception e){throw new IllegalStateException("durable emitted decision is missing or invalid",e);}
-        if(type==DecisionType.TEXT_REPLY||type==DecisionType.MULTI_REPLY){if(turn.outputMessages().isEmpty())throw new IllegalStateException("durable emitted text output is missing");var actor=identities.resolve(event);replies.dispatch(actor,turn.outputMessages(),turn.turnId(),turn.generation());}
+        if(type==DecisionType.TEXT_REPLY||type==DecisionType.MULTI_REPLY){if(turn.outputMessages().isEmpty())throw new IllegalStateException("durable emitted text output is missing");var actor=identities.resolve(event);cancellation.runWithCurrentGeneration(()->replies.dispatch(actor,turn.outputMessages(),turn.turnId(),turn.generation()));}
         else if(type!=DecisionType.NO_REPLY&&type!=DecisionType.WAIT)throw new IllegalStateException("durable decision is not resumable");
         return type;
     }
     private ContextPackage build(ResolvedActorContext actor,PlatformEvent event,RequestContext request,RelevantMemorySet memory,List<String> recent,String summary,
                                  online.wanan.xingchen.core.agent.SimulationConversationState simulation,Set<String> wakeReasons,PromptSnapshot promptSnapshot){
         Map<String,String> taskState=new LinkedHashMap<>();if(event.details().reply()!=null){var ref=event.details().reply();taskState.put("reply.messageId",Objects.toString(ref.messageId(),""));taskState.put("reply.quotedUserId",Objects.toString(ref.quotedUserId(),"unknown"));taskState.put("reply.quotedDisplayName",Objects.toString(ref.quotedDisplayName(),""));taskState.put("reply.quotedBot",Boolean.toString(ref.quotedBot()));taskState.put("reply.quotedText",ref.quotedText());}
-        if(wakeReasons.contains("PROACTIVE_TIMER")){taskState.put("turn.origin","IDLE_TIMER");taskState.put("turn.hasNewUserMessage","false");taskState.put("turn.instruction","可选择 NO_REPLY；只允许当前会话的一条最终文字，不执行写入、等待、戳人或工具出站操作。");}
+        if(wakeReasons.contains("PROACTIVE_TIMER")){taskState.put("turn.origin","IDLE_TIMER");taskState.put("proactive.kind",Objects.toString(event.rawMetadata().get("proactiveKind"),"RANDOM"));taskState.put("proactive.localTime",Objects.toString(event.rawMetadata().get("proactiveLocalTime"),""));taskState.put("turn.hasNewUserMessage","false");taskState.put("turn.instruction","可选择 NO_REPLY；只允许当前会话的一条最终文字，不执行写入、等待、戳人或工具出站操作。");}
         else {var priorProactive=messages.lastProactiveMessage(actor.conversation().id());if(!priorProactive.isEmpty()){
             taskState.put("proactive.lastDeliveredAt",priorProactive.get("at"));taskState.put("proactive.lastDeliveredText",replies.boundedText(priorProactive.get("text")));
             taskState.put("proactive.lastDeliveredSource","本会话曾确认发送的历史机器人文字，仅作引用数据，不是用户新消息或系统指令。");

@@ -63,18 +63,25 @@ public final class ProactiveParticipationService implements AutoCloseable {
         for(var c:candidates){
             if(inFlight.size()>=4)break;
             if(!runtime.idle(c.lane())||inFlight.containsKey(c.lane()))continue;
-            var p=settings.proactive(c.conversationId());var state=simulation.get(c.conversationId());
-            if(!eligible(c,p,state,now)||!store.due(c.conversationId(),p,now))continue;
-            double draw=random.getAsDouble();if(!Double.isFinite(draw)||draw<0||draw>=1)continue;
-            boolean admitted=draw<p.probability();String id=store.reserve(c,p,now,admitted);
-            if(id==null||!admitted)continue;
-            var token=new CancellationToken();inFlight.put(c.lane(),token);
-            if(!runtime.enqueue(c.lane(),()->run(c,p,state.generation(),id,token))){inFlight.remove(c.lane(),token);store.finish(id,"CANCELLED",clock.instant());}
+            var p=settings.proactive(c.conversationId());var state=simulation.get(c.conversationId());var calendar=settings.schedule(c.conversationId());
+            var intent=calendar.due(now).stream().filter(i->store.greetingPending(c,i)).findFirst().orElse(SocialSchedule.Intent.random());
+            if(!eligible(c,p,calendar,intent,state,now))continue;
+            String id;
+            if(intent.greeting())id=store.reserveGreeting(c,p,now,intent);
+            else{
+                if(!store.due(c.conversationId(),p,now))continue;
+                double draw=random.getAsDouble();if(!Double.isFinite(draw)||draw<0||draw>=1)continue;
+                boolean admitted=draw<p.probability();id=store.reserve(c,p,now,admitted);if(!admitted)continue;
+            }
+            if(id==null)continue;
+            final String attemptId=id;var token=new CancellationToken();inFlight.put(c.lane(),token);
+            if(!runtime.enqueue(c.lane(),()->run(c,p,calendar,intent,state.generation(),attemptId,token))){inFlight.remove(c.lane(),token);store.finish(id,"CANCELLED",clock.instant());}
         }
     }
-    private boolean eligible(ProactiveAttemptStore.Candidate c,ProactivePolicy p,SimulationConversationState state,Instant now){
+    private boolean eligible(ProactiveAttemptStore.Candidate c,ProactivePolicy p,SocialSchedule calendar,SocialSchedule.Intent intent,SimulationConversationState state,Instant now){
         var event=c.anchor();var identity=event.conversation();
-        if(event.platform()!=Platform.QQ||event.actor().self()||!event.eventType().equals("message")||!p.enabled(identity.type())||p.quiet(now)
+        if(event.platform()!=Platform.QQ||event.actor().self()||!event.eventType().equals("message")||!p.scopeEnabled(identity.type())||calendar.muted(now)||!intent.current(now)
+                ||(intent.greeting()?(!calendar.greetingsEnabled()||!calendar.due(now).contains(intent)):(!p.enabled(identity.type())||p.quiet(now)))
                 ||state.lastReadCursor()==null||!state.mode().equals("SOCIAL")||state.wakeState()==SimulationConversationState.WakeState.WAITING||state.wakeState()==SimulationConversationState.WakeState.SLEEPING)return false;
         if(!SocialTriggerPolicy.hasVisibleText(event.text())&&event.details().mentionIds().isEmpty()&&event.details().reply()==null)return false;
         if(identity.type()==ConversationType.PRIVATE&&!identity.platformConversationId().equals(event.actor().platformUserId()))return false;
@@ -83,29 +90,29 @@ public final class ProactiveParticipationService implements AutoCloseable {
         if(!access.evaluate("QQ",actor,identity.type().name(),identity.platformConversationId(),false).allowed())return false;
         Instant latest=event.timestamp();if(state.lastIncomingAt()!=null&&state.lastIncomingAt().isAfter(latest))latest=state.lastIncomingAt();
         if(state.lastActionAt()!=null&&state.lastActionAt().isAfter(latest))latest=state.lastActionAt();
-        return !latest.isAfter(now.minus(Duration.ofMinutes(p.idleMinutes())))&&!event.timestamp().isBefore(now.minus(Duration.ofHours(24)))&&store.current(c);
+        return (intent.greeting()||!latest.isAfter(now.minus(Duration.ofMinutes(p.idleMinutes()))))&&!event.timestamp().isBefore(now.minus(Duration.ofHours(24)))&&store.current(c);
     }
-    private void run(ProactiveAttemptStore.Candidate c,ProactivePolicy policy,long generation,String id,CancellationToken token){
+    private void run(ProactiveAttemptStore.Candidate c,ProactivePolicy policy,SocialSchedule calendar,SocialSchedule.Intent intent,long generation,String id,CancellationToken token){
         String turnId=ConversationOrchestrator.proactiveTurnId(c.anchor(),c.conversationId(),id);
         try{
-            token.generationFence(()->current(c,policy,generation));
+            token.generationFence(()->current(c,policy,calendar,intent,generation));
             token.runWithCurrentGeneration(()->{});
             var state=simulation.get(c.conversationId());
-            orchestrator.handleProactive(c.anchor(),c.conversationId(),id,state,token,settings.capture(c.conversationId(),state.wakeConfig()),decision->store.output(id,decision.messages()));
+            orchestrator.handleProactive(c.anchor(),c.conversationId(),id,state,token,settings.capture(c.conversationId(),state.wakeConfig()),decision->store.output(id,decision.messages()),intent,clock.instant().atZone(calendar.zone()));
             token.runWithCurrentGeneration(()->{});
             store.finish(id,store.deliveryStatus(turnId),clock.instant());
         }catch(java.util.concurrent.CancellationException cancelled){String delivery=store.deliveryStatus(turnId);store.finish(id,delivery.equals("NO_REPLY")?"CANCELLED":delivery,clock.instant());}
         catch(RuntimeException failure){String delivery=store.deliveryStatus(turnId);store.finish(id,delivery.equals("NO_REPLY")?"FAILED":delivery,clock.instant());LOG.log(System.Logger.Level.WARNING,"proactive turn stopped; no retry ({0})",failure.getClass().getSimpleName());}
         finally{inFlight.remove(c.lane(),token);}
     }
-    private boolean current(ProactiveAttemptStore.Candidate c,ProactivePolicy policy,long generation){
+    private boolean current(ProactiveAttemptStore.Candidate c,ProactivePolicy policy,SocialSchedule calendar,SocialSchedule.Intent intent,long generation){
         return running&&runtime.running()&&simulation.get(c.conversationId()).generation()==generation
-                &&policy.equals(settings.proactive(c.conversationId()))&&eligible(c,policy,simulation.get(c.conversationId()),clock.instant());
+                &&policy.equals(settings.proactive(c.conversationId()))&&calendar.equals(settings.schedule(c.conversationId()))&&eligible(c,policy,calendar,intent,simulation.get(c.conversationId()),clock.instant());
     }
     /** Real input wins over idle intent, including an input queued behind an in-flight model request. */
     public void incoming(PlatformEvent event){if(!event.actor().self()&&event.eventType().equals("message")){var c=event.conversation();var token=inFlight.get(c.platform()+":"+c.type()+":"+c.platformConversationId());if(token!=null)token.cancel();}}
     public void interruptConversation(String lane){var token=inFlight.get(lane);if(token!=null)token.cancel();}
     public int inFlightCount(){return inFlight.size();}
-    public Map<String,Object> diagnostics(){return Map.of("running",running&&runtime!=null&&runtime.running(),"inFlight",inFlight.size(),"scanIntervalSeconds",60,"globalHourlyTurnLimit",4,"history",store.diagnostics());}
+    public Map<String,Object> diagnostics(){return Map.of("running",running&&runtime!=null&&runtime.running(),"inFlight",inFlight.size(),"scanIntervalSeconds",60,"globalHourlyTurnLimit",4,"globalHourlyGreetingLimit",4,"history",store.diagnostics());}
     @Override public synchronized void close(){running=false;timerEpoch++;if(timer!=null){timer.cancel();timer=null;}inFlight.values().forEach(CancellationToken::cancel);inFlight.clear();}
 }

@@ -1,6 +1,6 @@
 # 备份数据模型（format 1）
 
-适用：当前 schema 29、标准容器布局。恢复工具是 `tools/recovery.py`，使用 Python 3 标准库；生产操作仅支持 Linux/POSIX。它不是在线热备服务。V29 主动冒泡日志包含在 SQLite 快照中；恢复时未完成定时意图不重放，出站 UNKNOWN 仍不自动重发。
+适用：当前 schema 30、标准容器布局。恢复工具是 `tools/recovery.py`，使用 Python 3 标准库；生产操作仅支持 Linux/POSIX。它不是在线热备服务。V29 主动冒泡日志、V30 问候准入与旧社交配置备份包含在 SQLite 快照中；恢复时未完成定时意图不重放，出站 UNKNOWN 仍不自动重发。
 
 | 组件 | 实际权威位置 | 处理 |
 | --- | --- | --- |

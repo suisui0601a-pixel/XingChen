@@ -15,5 +15,5 @@ public record SocialSettingsSnapshot(long globalRevision, long overrideRevision,
                 ||maxReplyMessages<1||maxReplyMessages>8||maxPerMinute<1||maxPerMinute>60||gapMillis<0||gapMillis>30_000)
             throw new IllegalArgumentException("invalid effective social settings");
     }
-    public static SocialSettingsSnapshot defaults(){return new SocialSettingsSnapshot(0,0,true,true,true,true,List.of(),true,true,List.of(),true,0,8,30,0);}
+    public static SocialSettingsSnapshot defaults(){return new SocialSettingsSnapshot(0,0,true,true,true,true,List.of(),true,true,List.of(),true,.05,8,30,0);}
 }

@@ -3,7 +3,7 @@
 范围以 `LEGACY_MIGRATION_MAPPING.md` 为准：仅 Bridge 0.1.7 config 的 owner 与 allow/deny 稳定 ID。未证明的字段跳过，不迁移任何 secret。源 archive 永远只读；解出的 config 只能写到新的私有 staging，结束后删除。
 
 ```sh
-# 自己的 Core 必须停止；target 必须已用当前 image 初始化 schema 29。
+# 自己的 Core 必须停止；target 必须已用当前 image 初始化 schema 30。
 sudo -u '#10001' python3 tools/legacy_migrate.py \
   --source /srv/xingchen/migration/PLACEHOLDER-config.json --data /srv/xingchen/live
 # 审核 report: discovered/importable/skips/conflicts/duplicates；不含 ID、昵称或值。
